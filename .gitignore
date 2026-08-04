@@ -1,3 +1,10 @@
+*.apk
+*.jadx
+
+.local/
+.claude/
+.superpowers/
+
 # Gradle files
 .gradle/
 build/

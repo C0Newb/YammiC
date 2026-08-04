@@ -1,4 +1,47 @@
 <resources>
     <string name="app_name">YammiC</string>
-    <string name="connect_and_send">Connect and send</string>
+
+    <string name="settings_title">Settings</string>
+    <string name="pairing_title">Pairing</string>
+    <string name="navigation_settings_title">Navigation</string>
+
+    <string name="notification_access_required">Notification access required for music</string>
+    <string name="grant">Grant</string>
+
+    <string name="connect">Connect</string>
+    <string name="disconnect">Disconnect</string>
+
+    <string name="media_card_title">Now playing</string>
+    <string name="media_nothing_playing">Nothing playing</string>
+
+    <string name="vpb_card_title">Virtual Pit Board</string>
+    <string name="vpb_status_format">Displaying: %1$s</string>
+
+    <string name="navigation_card_title">Navigation</string>
+    <string name="navigation_status_inactive">Inactive</string>
+    <string name="navigation_status_connecting">Connecting…</string>
+    <string name="navigation_status_active">Active (%1$d fps)</string>
+    <string name="navigation_status_error">Error: %1$s</string>
+    <string name="navigation_settings_toggle">Navigation screen</string>
+    <string name="navigation_settings_status_format">Status: %1$s</string>
+
+    <string name="log_card_title">Debug log</string>
+    <string name="clear_logs">Clear logs</string>
+
+    <string name="ble_name_format">BLE name: %1$s</string>
+    <string name="status_format">Status: %1$s</string>
+    <string name="odometer_placeholder">Odometer: --</string>
+
+    <string name="music_metadata_setting">Music metadata</string>
+    <string name="phone_metadata_setting">Phone metadata</string>
+    <string name="navigation_setting">Navigation</string>
+    <string name="vpb_setting">Virtual Pit Board support</string>
+    <string name="auto_reconnect_setting">Auto-reconnect (run in background)</string>
+
+    <string name="pairing_row_title">Pairing</string>
+    <string name="pairing_row_subtitle">CCU ID, PassKey, and device name</string>
+    <string name="ccu_id_label">CCU ID</string>
+    <string name="pass_key_label">PassKey</string>
+    <string name="device_name_label">Device name</string>
+    <string name="save">Save</string>
 </resources>

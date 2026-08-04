@@ -38,6 +38,7 @@ import co.cnewb.yammic.ymcsdk.packets.ccu.CcuMusicControlRequest
 import co.cnewb.yammic.ymcsdk.packets.ccu.CcuPhoneCellSignalLevelRequest
 import co.cnewb.yammic.ymcsdk.packets.ccu.CcuVolumeControlRequest
 import co.cnewb.yammic.ymcsdk.packets.ccu.CcuWeatherRequest
+import co.cnewb.yammic.ymcsdk.models.YmcMediaMetaData
 import co.cnewb.yammic.ymcsdk.vpb.VpbImageBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -45,6 +46,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.seconds
@@ -111,19 +113,29 @@ class BikeForegroundService : Service() {
     private val _navigationEnabled = MutableStateFlow(true)
     val navigationEnabled = _navigationEnabled.asStateFlow()
 
+    private val _vpbStatus = MutableStateFlow("Idle")
+    val vpbStatus = _vpbStatus.asStateFlow()
+
+    val mediaMetadata: StateFlow<YmcMediaMetaData?> get() = mediaStateMonitor.latestMetadata
+
     /** Toggles VPB pushes. When disabled, all VPB sends (onConnect, ticker, nav-button echo) are
      *  dropped and any currently-displayed VPB message is cleared. Takes effect immediately if
      *  the bike is connected. */
     fun setVpbEnabled(enabled: Boolean) {
         _vpbEnabled.value = enabled
-        if (!enabled && controller.isBikeConnected) {
-            scope.launch {
-                try {
-                    controller.clearVirtualPitBoard()
-                } catch (t: Throwable) {
-                    logger.debug("setVpbEnabled: clearVirtualPitBoard failed: ${t.message}")
+        if (!enabled) {
+            _vpbStatus.value = "Disabled"
+            if (controller.isBikeConnected) {
+                scope.launch {
+                    try {
+                        controller.clearVirtualPitBoard()
+                    } catch (t: Throwable) {
+                        logger.debug("setVpbEnabled: clearVirtualPitBoard failed: ${t.message}")
+                    }
                 }
             }
+        } else {
+            _vpbStatus.value = "Idle"
         }
     }
 
@@ -211,6 +223,7 @@ class BikeForegroundService : Service() {
                 if (_vpbEnabled.value) {
                     val vpbConnected = controller.sendVirtualPitBoardMessage(buildConnectedVirtualPitBoardImage())
                     logger.debug("Virtual Pit Board Connected message result: $vpbConnected")
+                    if (vpbConnected) _vpbStatus.value = "Connected message"
                 } else {
                     logger.debug("VPB disabled, skipping Connected message")
                 }
@@ -232,6 +245,7 @@ class BikeForegroundService : Service() {
                         val vpbImage = VpbImageBuilder.fromBitmap(sandwichBitmap.bitmap)
                         val result = controller.sendVirtualPitBoardMessage(vpbImage)
                         logger.debug("Sandwich image send result: $result")
+                        if (result) _vpbStatus.value = "Sandwich image"
                     } else {
                         logger.debug("Failed to load sandwich drawable")
                     }
@@ -281,7 +295,8 @@ class BikeForegroundService : Service() {
         scope.launch {
             try {
                 val image = buildVirtualPitBoardImage(message, Color.GREEN)
-                controller.sendVirtualPitBoardMessage(image)
+                val sent = controller.sendVirtualPitBoardMessage(image)
+                if (sent) _vpbStatus.value = message
             } catch (t: Throwable) {
                 logger.debug("sendNavRequestNotification failed: ${t.message}")
             }

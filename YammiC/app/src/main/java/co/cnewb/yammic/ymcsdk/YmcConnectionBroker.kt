@@ -322,6 +322,7 @@ class YmcConnectionBroker(
             messageBroker = localBroker
             runOnConnectJobs(localBroker)
             startConnectedJobs(localBroker)
+            pushState("Done")
             pushLog("Connected!")
         } catch (e: CancellationException) {
             messageBroker = null

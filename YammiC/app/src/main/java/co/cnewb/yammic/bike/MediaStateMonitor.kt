@@ -10,10 +10,13 @@ import android.os.Handler
 import android.os.Looper
 import co.cnewb.yammic.logging.Logger
 import co.cnewb.yammic.ymcsdk.YmcMessageBroker
+import co.cnewb.yammic.ymcsdk.models.YmcMediaMetaData
 import co.cnewb.yammic.ymcsdk.packets.app.AppMusicMetaDataResponse
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -27,6 +30,9 @@ class MediaStateMonitor(
     private val mediaSessionManager = context.getSystemService(MediaSessionManager::class.java)
     private val handler = Handler(Looper.getMainLooper())
     private val musicMetadataProvider = MusicMetadataProvider(context, notificationListenerComponent)
+
+    private val _latestMetadata = MutableStateFlow<YmcMediaMetaData?>(null)
+    val latestMetadata = _latestMetadata.asStateFlow()
 
     private var observedController: MediaController? = null
     private var observedCallback: MediaController.Callback? = null
@@ -91,6 +97,9 @@ class MediaStateMonitor(
 
     /** Sends the current media metadata immediately, e.g. right after connecting. */
     fun pushMetadata() {
+        // Update the UI-facing snapshot immediately; the BLE send below is separately
+        // debounced and re-reads metadata after the delay so its own behavior is unchanged.
+        _latestMetadata.value = musicMetadataProvider.getMetadata()
         // MediaController callbacks can fire several times in quick succession for a single
         // logical state change (e.g. buffering -> paused -> playing). Cancel any not-yet-sent
         // push and debounce so only the settled state goes out, instead of flooding the shared

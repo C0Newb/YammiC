@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/dashboardFragment">
+
+    <fragment
+        android:id="@+id/dashboardFragment"
+        android:name="co.cnewb.yammic.ui.dashboard.DashboardFragment"
+        android:label="@string/app_name">
+        <action
+            android:id="@+id/action_dashboard_to_settings"
+            app:destination="@id/settingsFragment" />
+        <action
+            android:id="@+id/action_dashboard_to_navigationSettings"
+            app:destination="@id/navigationSettingsFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/settingsFragment"
+        android:name="co.cnewb.yammic.ui.settings.SettingsFragment"
+        android:label="@string/settings_title">
+        <action
+            android:id="@+id/action_settings_to_pairing"
+            app:destination="@id/pairingFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/pairingFragment"
+        android:name="co.cnewb.yammic.ui.settings.PairingFragment"
+        android:label="@string/pairing_title" />
+
+    <fragment
+        android:id="@+id/navigationSettingsFragment"
+        android:name="co.cnewb.yammic.ui.navigation.NavigationSettingsFragment"
+        android:label="@string/navigation_settings_title" />
+
+</navigation>

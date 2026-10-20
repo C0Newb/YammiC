@@ -12,6 +12,7 @@ Build a feature-comparable app for Yamaha CCU equipped bikes; talking directly t
 
 - `YammiC/` — the Android app under active development (Kotlin, Compose, coroutines).
 - `docs/` — protocol documentation derived research sessions (such as BLE snoops).
+- `CCU-Emulator/` — C# / Avalonia CCU emulator for developing clients without the bike; see `docs/emulator.md`.
 
 ## Current App State
 

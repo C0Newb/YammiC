@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="CCU-Emulator/CCU_Emulator.Desktop/CCU_Emulator.Desktop.csproj" />
+  <Project Path="CCU-Emulator/CCU_Emulator/CCU_Emulator.csproj" />
+  <Project Path="CCU-Emulator/CCU_Emulator.Tests/CCU_Emulator.Tests.csproj" />
+</Solution>

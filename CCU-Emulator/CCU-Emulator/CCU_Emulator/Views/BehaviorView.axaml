@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:CCU_Emulator.ViewModels"
+             x:Class="CCU_Emulator.Views.BehaviorView"
+             x:DataType="vm:BehaviorViewModel">
+    <ScrollViewer>
+        <StackPanel Spacing="6" Margin="12">
+            <TextBlock Text="Requests sent after the phone authenticates" FontWeight="SemiBold" />
+            <CheckBox Content="LibVersion" IsChecked="{Binding Behavior.SendLibVersion}" />
+            <CheckBox Content="Language request" IsChecked="{Binding Behavior.SendLanguageRequest}" />
+            <CheckBox Content="Weather request" IsChecked="{Binding Behavior.SendWeatherRequest}" />
+            <CheckBox Content="Device time request (repeats every 5 s until answered)" IsChecked="{Binding Behavior.SendDeviceTimeRequest}" />
+            <CheckBox Content="Bluetooth headset state request" IsChecked="{Binding Behavior.SendHeadsetStateRequest}" />
+            <CheckBox Content="Volume-controllable request" IsChecked="{Binding Behavior.SendVolumeControllableRequest}" />
+            <CheckBox Content="Cell signal level request" IsChecked="{Binding Behavior.SendCellSignalRequest}" />
+            <CheckBox Content="Periodic ping" IsChecked="{Binding Behavior.SendPing}" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="Ping interval (s)" VerticalAlignment="Center" />
+                <NumericUpDown Minimum="0" Maximum="600" Increment="1" FormatString="0" Value="{Binding Behavior.PingIntervalSeconds}" />
+            </StackPanel>
+
+            <TextBlock Text="Fault injection" FontWeight="SemiBold" Margin="0,12,0,0" />
+            <CheckBox Content="Reject Virtual Pit Board requests (0x0232)" IsChecked="{Binding Behavior.RejectVpbRequests}" />
+            <CheckBox Content="Fail every authentication" IsChecked="{Binding Behavior.ForceAuthFailure}" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

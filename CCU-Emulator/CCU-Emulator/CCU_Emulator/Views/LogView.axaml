@@ -1,0 +1,29 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:CCU_Emulator.ViewModels"
+             xmlns:em="using:CCU_Emulator.Emulation"
+             x:Class="CCU_Emulator.Views.LogView"
+             x:DataType="vm:LogViewModel">
+    <Grid RowDefinitions="Auto,*" Margin="12" RowSpacing="8">
+        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+            <TextBox Text="{Binding FilterText}" PlaceholderText="Filter (name, channel, hex, detail)" />
+            <Button Grid.Column="1" Content="Copy" Click="OnCopyClicked" />
+            <Button Grid.Column="2" Content="Clear" Command="{Binding ClearCommand}" />
+        </Grid>
+        <ListBox Grid.Row="1" x:Name="LogList" ItemsSource="{Binding Visible}">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="em:PacketLogEntry">
+                    <StackPanel Margin="0,2">
+                        <TextBlock FontFamily="Consolas,Menlo,monospace" FontSize="12">
+                            <Run Text="{Binding Direction}" FontWeight="Bold" />
+                            <Run Text="{Binding Channel}" />
+                            <Run Text="{Binding Name}" FontWeight="SemiBold" />
+                        </TextBlock>
+                        <TextBlock Text="{Binding Hex}" FontFamily="Consolas,Menlo,monospace" FontSize="11" Foreground="Gray" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding Detail}" FontSize="11" TextWrapping="Wrap" />
+                    </StackPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </Grid>
+</UserControl>

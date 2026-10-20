@@ -1,0 +1,16 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:CCU_Emulator.ViewModels"
+             x:Class="CCU_Emulator.Views.MainView"
+             x:DataType="vm:MainViewModel">
+    <Grid ColumnDefinitions="*,440" ColumnSpacing="12" Margin="12">
+        <ContentControl Grid.Column="0" Content="{Binding Dash}" />
+        <TabControl Grid.Column="1">
+            <TabItem Header="Connection"><ContentControl Content="{Binding Connection}" /></TabItem>
+            <TabItem Header="Buttons"><ContentControl Content="{Binding Buttons}" /></TabItem>
+            <TabItem Header="Behavior"><ContentControl Content="{Binding Behavior}" /></TabItem>
+            <TabItem Header="Notifications"><ContentControl Content="{Binding Notifications}" /></TabItem>
+            <TabItem Header="Log"><ContentControl Content="{Binding Log}" /></TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>

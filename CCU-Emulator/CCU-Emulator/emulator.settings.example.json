@@ -1,0 +1,23 @@
+{
+  "CcuId": "01234567890123",
+  "PassKey": "012345",
+  "Mac": "00:AA:BB:CC:DD:EE",
+  "Transport": "LoopbackTcp",
+  "TcpBindAddress": "127.0.0.1",
+  "TcpPort": 48800,
+  "SppEnabled": true,
+  "PhoneBluetoothAddress": "",
+  "Behavior": {
+    "SendLibVersion": true,
+    "SendLanguageRequest": true,
+    "SendWeatherRequest": true,
+    "SendDeviceTimeRequest": true,
+    "SendHeadsetStateRequest": true,
+    "SendVolumeControllableRequest": true,
+    "SendCellSignalRequest": true,
+    "SendPing": true,
+    "PingIntervalSeconds": 10,
+    "RejectVpbRequests": false,
+    "ForceAuthFailure": false
+  }
+}

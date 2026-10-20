@@ -1,0 +1,38 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:CCU_Emulator.ViewModels"
+             x:Class="CCU_Emulator.Views.ButtonsView"
+             x:DataType="vm:ButtonsViewModel">
+    <ScrollViewer>
+        <StackPanel Spacing="14" Margin="12">
+            <TextBlock Text="Media" FontWeight="SemiBold" />
+            <WrapPanel>
+                <Button Content="⏮ Previous" Command="{Binding PreviousCommand}" Margin="0,0,8,8" />
+                <Button Content="▶ Play" Command="{Binding PlayCommand}" Margin="0,0,8,8" />
+                <Button Content="⏸ Pause" Command="{Binding PauseCommand}" Margin="0,0,8,8" />
+                <Button Content="⏭ Next" Command="{Binding NextCommand}" Margin="0,0,8,8" />
+            </WrapPanel>
+
+            <TextBlock Text="Volume" FontWeight="SemiBold" />
+            <WrapPanel>
+                <Button Content="Media +" Command="{Binding MediaVolumeUpCommand}" Margin="0,0,8,8" />
+                <Button Content="Media −" Command="{Binding MediaVolumeDownCommand}" Margin="0,0,8,8" />
+                <Button Content="Call +" Command="{Binding PhoneVolumeUpCommand}" Margin="0,0,8,8" />
+                <Button Content="Call −" Command="{Binding PhoneVolumeDownCommand}" Margin="0,0,8,8" />
+            </WrapPanel>
+
+            <TextBlock Text="Mute" FontWeight="SemiBold" />
+            <WrapPanel>
+                <Button Content="Mute mic" Command="{Binding MuteMicrophoneCommand}" Margin="0,0,8,8" />
+                <Button Content="Mute speaker" Command="{Binding MuteSpeakerCommand}" Margin="0,0,8,8" />
+            </WrapPanel>
+
+            <TextBlock Text="Call (enabled while a call is ringing or active)" FontWeight="SemiBold" />
+            <WrapPanel>
+                <Button Content="Accept" Command="{Binding AnswerCommand}" IsEnabled="{Binding CanAnswerOrReject}" Margin="0,0,8,8" />
+                <Button Content="Reject" Command="{Binding RejectCommand}" IsEnabled="{Binding CanAnswerOrReject}" Margin="0,0,8,8" />
+                <Button Content="Hang up" Command="{Binding HangUpCommand}" IsEnabled="{Binding CanHangUp}" Margin="0,0,8,8" />
+            </WrapPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

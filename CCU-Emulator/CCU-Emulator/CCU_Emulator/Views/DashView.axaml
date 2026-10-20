@@ -1,0 +1,56 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:CCU_Emulator.ViewModels"
+             x:Class="CCU_Emulator.Views.DashView"
+             x:DataType="vm:DashViewModel">
+    <!-- The VPB canvas is 600x306 (docs/vpb.md); the whole dash scales from that size. -->
+    <Viewbox Stretch="Uniform">
+        <Border Width="600" Height="306" Background="#0F1318" CornerRadius="10" ClipToBounds="True">
+            <Grid>
+                <!-- Idle -->
+                <Grid IsVisible="{Binding ShowIdle}" Margin="24" RowDefinitions="Auto,*,Auto">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="{Binding ClockText}" FontSize="40" Foreground="White" />
+                        <TextBlock Grid.Column="1" Text="{Binding StatusText}" Foreground="#9AA4AF" VerticalAlignment="Center" />
+                    </Grid>
+                    <StackPanel Grid.Row="1" VerticalAlignment="Center" Spacing="6">
+                        <TextBlock Text="{Binding PlaybackText}" Foreground="#9AA4AF" FontSize="18" />
+                        <TextBlock Text="{Binding MusicTitle}" FontSize="26" Foreground="White" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding MusicSubtitle}" Foreground="#9AA4AF" TextTrimming="CharacterEllipsis" />
+                        <ProgressBar Value="{Binding MusicProgress}" Minimum="0" Maximum="100" Height="6" />
+                    </StackPanel>
+                    <TextBlock Grid.Row="2" Text="{Binding WeatherText}" Foreground="White" FontSize="20" />
+                </Grid>
+
+                <!-- Call -->
+                <StackPanel IsVisible="{Binding ShowCall}" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="10">
+                    <TextBlock Text="{Binding CallTitle}" FontSize="22" Foreground="#7FD18B" HorizontalAlignment="Center" />
+                    <TextBlock Text="{Binding CallerLine}" FontSize="32" Foreground="White" HorizontalAlignment="Center" />
+                </StackPanel>
+
+                <!-- Virtual Pit Board image -->
+                <Grid IsVisible="{Binding ShowVpb}">
+                    <Image x:Name="VpbImage" Stretch="Uniform" />
+                    <TextBlock x:Name="VpbError" IsVisible="False" Foreground="#FF8A80" TextWrapping="Wrap"
+                               Margin="24" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                </Grid>
+
+                <!-- Image transfer progress -->
+                <TextBlock IsVisible="{Binding VpbReceiving}" Text="{Binding VpbProgressText}"
+                           Foreground="#FFD54F" Margin="12" VerticalAlignment="Bottom" HorizontalAlignment="Center" />
+
+                <!-- Notification banner -->
+                <Border IsVisible="{Binding BannerVisible}" VerticalAlignment="Top" Margin="12" Padding="12"
+                        Background="#F2FFFFFF" CornerRadius="8">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel>
+                            <TextBlock Text="{Binding BannerTitle}" FontWeight="Bold" Foreground="#101418" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding BannerBody}" Foreground="#2A323A" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="✕" Command="{Binding DismissBannerCommand}" VerticalAlignment="Top" />
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+    </Viewbox>
+</UserControl>

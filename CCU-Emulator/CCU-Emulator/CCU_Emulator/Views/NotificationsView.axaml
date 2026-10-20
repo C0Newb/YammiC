@@ -1,0 +1,23 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:CCU_Emulator.ViewModels"
+             xmlns:em="using:CCU_Emulator.Emulation"
+             x:Class="CCU_Emulator.Views.NotificationsView"
+             x:DataType="vm:NotificationsViewModel">
+    <ListBox ItemsSource="{Binding Items}" Margin="12">
+        <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="em:NotificationEntry">
+                <Grid ColumnDefinitions="*,Auto" Margin="0,4">
+                    <StackPanel>
+                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding SubTitle}" Foreground="Gray" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding Detail}" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Content="Dismiss on dash" VerticalAlignment="Top"
+                            Command="{Binding $parent[UserControl].((vm:NotificationsViewModel)DataContext).DismissCommand}"
+                            CommandParameter="{Binding}" />
+                </Grid>
+            </DataTemplate>
+        </ListBox.ItemTemplate>
+    </ListBox>
+</UserControl>

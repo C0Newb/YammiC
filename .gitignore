@@ -39,3 +39,9 @@ google-services.json
 
 # Android Profiling
 *.hprof
+
+# CCU emulator
+CCU-Emulator/**/bin/
+CCU-Emulator/**/obj/
+CCU-Emulator/.vs/
+CCU-Emulator/**/emulator.settings.json

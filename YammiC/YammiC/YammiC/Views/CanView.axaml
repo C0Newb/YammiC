@@ -1,0 +1,94 @@
+<ContentPage xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:YammiC.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
+             Header="Bike data"
+             x:DataType="vm:CanViewModel"
+             x:Class="YammiC.Views.CanView">
+    <Design.DataContext>
+        <vm:CanViewModel />
+    </Design.DataContext>
+
+    <ScrollViewer>
+        <StackPanel Margin="16" Spacing="16">
+            <ToggleSwitch Content="Ask the bike for data" IsChecked="{Binding CanDataEnabled}" />
+            <TextBlock TextWrapping="Wrap" Opacity="0.7" Text="{Binding Status}" />
+
+            <Border Classes="card">
+                <StackPanel Spacing="4">
+                    <TextBlock Classes="subtitle" Text="Signals to request" />
+                    <TextBlock TextWrapping="Wrap" Opacity="0.7" FontSize="12"
+                               Text="Each one adds Bluetooth traffic. Only the throttle is on by default." />
+                    <ItemsControl ItemsSource="{Binding Signals}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:CanSignalOption">
+                                <CheckBox IsChecked="{Binding IsSelected}">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Title}" />
+                                        <TextBlock Opacity="0.6" FontSize="11" TextWrapping="Wrap" Text="{Binding Description}" />
+                                    </StackPanel>
+                                </CheckBox>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="subtitle" Text="Explore" />
+                    <TextBlock TextWrapping="Wrap" Opacity="0.7" FontSize="12"
+                               Text="Looking for a signal (for example fuel level)? Ask for extra CAN IDs in hex, separated by commas, or ask the bike what it supports." />
+                    <TextBox Watermark="Extra CAN IDs, e.g. 0x0123, 0x0400" Text="{Binding ExtraIdsText}" />
+                    <Button Content="Request these IDs" Command="{Binding ApplyExtraIdsCommand}" />
+                    <TextBlock TextWrapping="Wrap" Opacity="0.7" FontSize="12" Text="{Binding ExtraIdsStatus}" />
+                    <Button Content="Ask the bike what it supports" Command="{Binding DiscoverCommand}" IsEnabled="{Binding !IsDiscovering}" />
+                    <SelectableTextBlock FontFamily="Consolas,Menlo,monospace" FontSize="12" TextWrapping="Wrap" Text="{Binding DiscoveryReport}" />
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="subtitle" Text="Values" />
+                    <TextBlock TextWrapping="Wrap" Opacity="0.7" FontSize="12"
+                               Text="Decoded the way the reference app does, not yet checked on a bike. Compare with the raw bytes below." />
+                    <ItemsControl ItemsSource="{Binding Values}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:CanValueRow">
+                                <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                                    <TextBlock Text="{Binding Name}" />
+                                    <TextBlock Grid.Column="1" FontFamily="Consolas,Menlo,monospace" Text="{Binding Value}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="subtitle" Text="Raw signals (the IDs we asked for)" />
+                    <ItemsControl ItemsSource="{Binding Raw}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:CanRawRow">
+                                <StackPanel Margin="0,4" Spacing="1">
+                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                        <TextBlock FontFamily="Consolas,Menlo,monospace" FontWeight="SemiBold" Text="{Binding Id}" />
+                                        <TextBlock Grid.Column="1" Margin="8,0,0,0" Opacity="0.7" Text="{Binding Name}" />
+                                        <TextBlock Grid.Column="2" Opacity="0.7" FontSize="12" Text="{Binding Age}" />
+                                    </Grid>
+                                    <TextBlock FontFamily="Consolas,Menlo,monospace" FontSize="12" Text="{Binding Bytes}" />
+                                    <TextBlock Opacity="0.5" FontSize="11">
+                                        <Run Text="changed " /><Run Text="{Binding Changed}" />
+                                    </TextBlock>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</ContentPage>

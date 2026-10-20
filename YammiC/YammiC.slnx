@@ -1,0 +1,21 @@
+<Solution>
+  <Folder Name="/UI/">
+    <Project Path="YammiC/YammiC.Android/YammiC.Android.csproj">
+      <Deploy />
+    </Project>
+    <Project Path="YammiC/YammiC.Browser/YammiC.Browser.csproj" />
+    <Project Path="YammiC/YammiC.Desktop/YammiC.Desktop.csproj" />
+    <Project Path="YammiC/YammiC.iOS/YammiC.iOS.csproj">
+      <Deploy />
+    </Project>
+  </Folder>
+  <Folder Name="/Unify/">
+    <Project Path="../../../Neptune/Lib/CNCO.Unify/src/Unify/Unify.csproj" />
+    <Project Path="../../../Neptune/Lib/CNCO.Unify/src/Unify.Configuration/Unify.Configuration.csproj" />
+    <Project Path="../../../Neptune/Lib/CNCO.Unify/src/Unify.Device/Unify.Device.csproj" />
+    <Project Path="../../../Neptune/Lib/CNCO.Unify/src/Unify.Notifications/Unify.Notifications.csproj" />
+    <Project Path="../../../Neptune/Lib/CNCO.Unify/src/Unify.Security/Unify.Security.csproj" />
+  </Folder>
+  <Project Path="YammiC/YammiC/YammiC.csproj" />
+  <Project Path="YccuSdk/YccuSdk.csproj" />
+</Solution>

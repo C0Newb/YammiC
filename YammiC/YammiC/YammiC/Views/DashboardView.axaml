@@ -1,0 +1,136 @@
+<ContentPage xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:YammiC.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
+             Header="YammiC"
+             x:DataType="vm:DashboardViewModel"
+             x:Class="YammiC.Views.DashboardView">
+    <Design.DataContext>
+        <vm:DashboardViewModel />
+    </Design.DataContext>
+
+    <ScrollViewer>
+        <StackPanel Margin="16" Spacing="16">
+
+            <Button Content="Settings"
+                    HorizontalAlignment="Right"
+                    Click="SettingsButton_Click" />
+
+            <Border Classes="card" IsVisible="{Binding NeedsNotificationAccess}">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock VerticalAlignment="Center"
+                               TextWrapping="Wrap"
+                               Text="Notification access required for music" />
+                    <Button Grid.Column="1"
+                            Content="Grant"
+                            Command="{Binding GrantNotificationAccessCommand}" />
+                </Grid>
+            </Border>
+
+            <StackPanel Spacing="8">
+                <TextBlock Classes="title" Text="{Binding BikeName}" />
+                <WrapPanel>
+                    <TextBlock Margin="0,0,16,0" Text="{Binding BleNameText}" />
+                    <TextBlock Margin="0,0,16,0" Text="{Binding StatusText}" />
+                    <TextBlock Text="{Binding OdometerText}" />
+                </WrapPanel>
+                <TextBlock Foreground="{DynamicResource SystemErrorTextColor}"
+                           TextWrapping="Wrap"
+                           IsVisible="{Binding HasError}"
+                           Text="{Binding LastError}" />
+            </StackPanel>
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                <Button Classes="accent"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Center"
+                        Content="Connect"
+                        IsEnabled="{Binding CanConnect}"
+                        Command="{Binding ConnectCommand}" />
+                <Button Grid.Column="1"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Center"
+                        Content="Disconnect"
+                        IsEnabled="{Binding CanDisconnect}"
+                        Command="{Binding DisconnectCommand}" />
+            </Grid>
+
+            <Border Classes="card">
+                <StackPanel Spacing="4">
+                    <TextBlock Classes="subtitle" Text="Now playing" />
+                    <TextBlock FontSize="18" Text="{Binding MediaTrack}" />
+                    <TextBlock Text="{Binding MediaArtist}" />
+                    <TextBlock Opacity="0.7" Text="{Binding MediaState}" />
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Classes="subtitle" VerticalAlignment="Center" Text="Virtual Pit Board" />
+                        <ToggleSwitch Grid.Column="1"
+                                      OnContent="" OffContent=""
+                                      IsChecked="{Binding VpbEnabled}" />
+                    </Grid>
+                    <TextBlock Text="{Binding VpbStatus}" />
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="subtitle" Text="Pit board image" />
+                    <Image Source="{Binding VpbImagePreview}"
+                           MaxHeight="160"
+                           Stretch="Uniform"
+                           HorizontalAlignment="Left" />
+                    <TextBlock Opacity="0.7" TextWrapping="Wrap" Text="{Binding VpbImageName}" />
+                    <WrapPanel>
+                        <Button Margin="0,0,8,8"
+                                Classes="accent"
+                                Content="Send image"
+                                IsEnabled="{Binding !IsSendingVpbImage}"
+                                Command="{Binding SendVpbImageCommand}" />
+                        <Button Margin="0,0,8,8"
+                                Content="Choose image..."
+                                Click="ChooseVpbImage_Click" />
+                        <Button Margin="0,0,8,8"
+                                Content="Use sandwich"
+                                Command="{Binding UseDefaultVpbImageCommand}" />
+                        <Button Margin="0,0,8,8"
+                                Content="Clear board"
+                                IsEnabled="{Binding !IsSendingVpbImage}"
+                                Command="{Binding ClearVpbImageCommand}" />
+                    </WrapPanel>
+                    <TextBlock TextWrapping="Wrap" Text="{Binding VpbImageStatus}" />
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card" Cursor="Hand" PointerReleased="NavigationCard_PointerReleased">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="subtitle" Text="Navigation" />
+                    <TextBlock Text="{Binding NavigationStatus}" />
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Classes="subtitle" VerticalAlignment="Center" Text="Debug log" />
+                        <Button Grid.Column="1"
+                                Content="Clear logs"
+                                Command="{Binding ClearLogsCommand}" />
+                    </Grid>
+                    <ScrollViewer x:Name="LogScroller" Height="200">
+                        <SelectableTextBlock FontFamily="Consolas,Menlo,monospace"
+                                             FontSize="12"
+                                             TextWrapping="Wrap"
+                                             Text="{Binding Logs}" />
+                    </ScrollViewer>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</ContentPage>

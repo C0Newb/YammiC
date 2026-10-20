@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>YammiC</RootNamespace>
+    <TargetFramework>$(YmcAndroidTargetFramework)</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <ApplicationId>co.cnewb.yammic.net</ApplicationId>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+  </PropertyGroup>
+
+  <!--
+    Debug builds default to "fast deployment": only the changed assemblies are copied into the app's files/.__override__ folder,
+    and the runtime loads them from there in preference to the APK. That left the app starting from a mix of old and new files
+    and, when a deploy overlapped a launch (the bike's Bluetooth connecting starts the app by itself), crashed it with SIGBUS
+    inside the runtime's assembly loader. Packing the assemblies into the APK makes every install a complete, atomic set.
+    Deploys are slower; remove this if you need fast iteration and accept the risk.
+  -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AndroidResource Include="Icon.png">
+      <Link>Resources\drawable\Icon.png</Link>
+    </AndroidResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <AndroidAsset Include="Assets\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Android" />
+    <PackageReference Include="Xamarin.AndroidX.Core.SplashScreen" />
+    <PackageReference Include="Xamarin.AndroidX.Core.Core.Ktx" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\YammiC\YammiC.csproj" />
+    <ProjectReference Include="..\..\YccuSdk\YccuSdk.csproj" />
+  </ItemGroup>
+</Project>

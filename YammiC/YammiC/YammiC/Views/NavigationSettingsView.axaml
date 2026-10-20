@@ -1,0 +1,18 @@
+<ContentPage xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:YammiC.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="300"
+             Header="Navigation"
+             x:DataType="vm:NavigationSettingsViewModel"
+             x:Class="YammiC.Views.NavigationSettingsView">
+    <Design.DataContext>
+        <vm:NavigationSettingsViewModel />
+    </Design.DataContext>
+
+    <StackPanel Margin="16" Spacing="12">
+        <ToggleSwitch Content="Navigation screen" IsChecked="{Binding NavigationEnabled}" />
+        <TextBlock Text="{Binding StatusText}" />
+    </StackPanel>
+</ContentPage>

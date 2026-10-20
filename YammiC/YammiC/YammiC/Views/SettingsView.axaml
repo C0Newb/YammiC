@@ -1,0 +1,77 @@
+﻿<ContentPage xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:YammiC.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="600"
+             Header="Settings"
+             x:DataType="vm:SettingsViewModel"
+             x:Class="YammiC.Views.SettingsView">
+    <Design.DataContext>
+        <vm:SettingsViewModel />
+    </Design.DataContext>
+
+    <ScrollViewer>
+        <StackPanel Margin="16" Spacing="8">
+            <ToggleSwitch Content="Music metadata" IsChecked="{Binding MusicMetadataEnabled}" />
+            <ToggleSwitch Content="Phone metadata" IsChecked="{Binding PhoneMetadataEnabled}" />
+            <ToggleSwitch Content="Navigation" IsChecked="{Binding NavigationEnabled}" />
+            <ToggleSwitch Content="Virtual Pit Board support" IsChecked="{Binding VpbEnabled}" />
+            <ToggleSwitch Content="Auto-connect when the bike's Bluetooth connects" IsChecked="{Binding AutoReconnectEnabled}" />
+            <ToggleSwitch Content="Home and work buttons (navigation)" IsChecked="{Binding HomeAndWorkEnabled}" />
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <TextBlock VerticalAlignment="Center" Text="Nav mode" />
+                <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+                          ItemsSource="{x:Static vm:SettingsViewModel.NavModes}"
+                          SelectedItem="{Binding NavigationMode}" />
+            </Grid>
+            <TextBlock Opacity="0.7" TextWrapping="Wrap"
+                       Text="Sandwich: the demo image. Ui: your screen from the screen editor. Reels: videos from a folder, scrolled with the bike's zoom buttons, with sound on the phone." />
+            <Border Classes="card" IsVisible="{Binding ReelsSupported}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <StackPanel Spacing="2">
+                        <TextBlock Classes="subtitle" Text="Reels folder" />
+                        <TextBlock Opacity="0.7" TextWrapping="Wrap" Text="{Binding ReelsFolderText}" />
+                    </StackPanel>
+                    <Button Grid.Column="1" VerticalAlignment="Center" Content="Choose..." Click="ChooseReelsFolder_Click" />
+                </Grid>
+            </Border>
+            <ToggleSwitch Content="Custom pit board screen" IsChecked="{Binding VpbScreenEnabled}" />
+
+            <Border Classes="card" Cursor="Hand" PointerReleased="ScreenEditorRow_PointerReleased">
+                <StackPanel Spacing="2">
+                    <TextBlock Classes="subtitle" Text="Screen editor" />
+                    <TextBlock Opacity="0.7" Text="Design the navigation and pit board screens" />
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card" Cursor="Hand" PointerReleased="CanRow_PointerReleased">
+                <StackPanel Spacing="2">
+                    <TextBlock Classes="subtitle" Text="Bike data" />
+                    <TextBlock Opacity="0.7" Text="Live RPM, temperatures, gear and more (CAN signals)" />
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card" Cursor="Hand" PointerReleased="RideModesRow_PointerReleased">
+                <StackPanel Spacing="2">
+                    <TextBlock Classes="subtitle" Text="Ride modes" />
+                    <TextBlock Opacity="0.7" Text="Custom and Track profiles: read, save, export, import and send" />
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card" Cursor="Hand" PointerReleased="LapTimerRow_PointerReleased">
+                <StackPanel Spacing="2">
+                    <TextBlock Classes="subtitle" Text="Lap timer (debug)" />
+                    <TextBlock Opacity="0.7" Text="Start, lap and stop; laps are sent to the bike" />
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card" Cursor="Hand" PointerReleased="PairingRow_PointerReleased">
+                <StackPanel Spacing="2">
+                    <TextBlock Classes="subtitle" Text="Pairing" />
+                    <TextBlock Opacity="0.7" Text="CCU ID, PassKey, and device name" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</ContentPage>

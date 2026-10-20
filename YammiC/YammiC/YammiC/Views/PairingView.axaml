@@ -1,0 +1,26 @@
+<ContentPage xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:YammiC.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="500"
+             Header="Pairing"
+             x:DataType="vm:PairingViewModel"
+             x:Class="YammiC.Views.PairingView">
+    <Design.DataContext>
+        <vm:PairingViewModel />
+    </Design.DataContext>
+
+    <ScrollViewer>
+        <StackPanel Margin="16" Spacing="12">
+            <TextBox Watermark="CCU ID" UseFloatingWatermark="True" Text="{Binding CcuId}" />
+            <TextBox Watermark="PassKey" UseFloatingWatermark="True" Text="{Binding PassKey}" />
+            <TextBox Watermark="Device name" UseFloatingWatermark="True" Text="{Binding DeviceName}" />
+            <Button Classes="accent"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Center"
+                    Content="Save"
+                    Click="SaveButton_Click" />
+        </StackPanel>
+    </ScrollViewer>
+</ContentPage>

@@ -1,0 +1,63 @@
+<ContentPage xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:YammiC.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
+             Header="Ride modes"
+             x:DataType="vm:RideModesViewModel"
+             x:Class="YammiC.Views.RideModesView">
+    <Design.DataContext>
+        <vm:RideModesViewModel />
+    </Design.DataContext>
+
+    <ScrollViewer>
+        <StackPanel Margin="16" Spacing="16">
+            <TextBlock TextWrapping="Wrap" Opacity="0.7" FontSize="12"
+                       Text="The bike's ride modes (Custom and Track profiles). Read them from the bike, keep copies on this phone, share them as files and send them back. Sending changes how the bike behaves, so each one is checked against the ranges the bike reported first." />
+            <TextBlock TextWrapping="Wrap" Text="{Binding Status}" />
+
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="subtitle" Text="On the bike" />
+                    <Button Content="Read from bike" Command="{Binding ReadFromBikeCommand}" IsEnabled="{Binding !IsBusy}" />
+                    <ItemsControl ItemsSource="{Binding BikeModes}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:BikeModeItem">
+                                <StackPanel Margin="0,6" Spacing="2">
+                                    <TextBlock FontWeight="SemiBold" Text="{Binding Title}" />
+                                    <TextBlock Opacity="0.7" FontSize="12" TextWrapping="Wrap" Text="{Binding Detail}" />
+                                    <Button Content="Save to library" Command="{Binding SaveCommand}" HorizontalAlignment="Left" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="subtitle" Text="Library on this phone" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Export all" Click="Export_Click" />
+                        <Button Content="Import" Click="Import_Click" />
+                    </StackPanel>
+                    <ItemsControl ItemsSource="{Binding Library}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:LibraryItem">
+                                <StackPanel Margin="0,6" Spacing="2">
+                                    <TextBlock FontWeight="SemiBold" Text="{Binding Title}" />
+                                    <TextBlock Opacity="0.7" FontSize="12" TextWrapping="Wrap" Text="{Binding Detail}" />
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button Content="{Binding SendText}" Command="{Binding SendCommand}" />
+                                        <Button Content="Delete" Command="{Binding DeleteCommand}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</ContentPage>

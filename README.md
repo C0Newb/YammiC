@@ -1,16 +1,22 @@
 # Yammi-C
 
-An app to connect your phone to Yamaha CCU in newer bikes.
+An app to connect your phone to Yamaha CCU in newer bikes. Written in C# with [Avalonia](https://avaloniaui.net/) (Android, with desktop for development).
 
 ## Feature Support
 
 | Feature | Description | Implemented | Confirmed working |
 | -- | -- | -- | -- |
-| Media control | Music metadata, playback control, volume control | ✅ | ✅ - occasional bug with "hanging" metadata, volume control is different |
+| Media control | Music metadata, playback control, volume control (steps the media stream silently, so it also moves a Bluetooth headset) | ✅ | ✅ - occasional bug with "hanging" metadata |
 | Phone control | Answer, decline, hangup, caller id | ⚠️ | ⚠️ - caller id is broken. |
 | Weather| Weather forecasts sent to the bike | ✅ | ⚠️ - works, but mock data. |
-| Virtual Pit Board | Send images to the VPB on the "track" theme | ✅ | ✅ |
 | Notifications | Send device notifications to the bike | ⚠️ | ✅ - can send mock notifications |
+| Virtual Pit Board | Send images to the VPB on the "track" theme | ✅ | ✅ |
+| Screen builder | Design your own navigation and pit board screens (text, clock, music, bike data) and import/export them as JSON | ✅ | ⚠️ - editor works, on-bike result not fully checked |
+| Navigation screen | Own link to the bike's navigation display: the built-in layout, your custom screen, or Reels (videos) | ⚠️ | ⚠️ - partly checked |
+| Bike data (CAN) | Live RPM, water and intake temperature, gear, throttle (TPS/APS), bank angle, pitch rate, acceleration; usable in the screen builder | ✅ | ⚠️ - throttle and gear confirmed; other decodings unverified |
+| Fuel level | Tank level from the bike | ❌ | ❌ - no CAN signal for it found; an explorer on the Bike data page can request other IDs |
+| Ride modes (Y-Trac) | Read the Custom and Track profiles from the bike, keep them in a library on the phone, export/import as JSON, send back | ⚠️ | ❌ - untested on a bike |
+| Lap timer | Start/lap/stop (debug page) that sends laps to the bike | ⚠️ | ❌ - untested on a bike |
 
 ## Motivation
 

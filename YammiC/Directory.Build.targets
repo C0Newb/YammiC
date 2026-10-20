@@ -1,0 +1,47 @@
+<Project>
+	<!--
+		Anything conditioned on $(TargetFramework) (or $(Configuration)) belongs here rather than in
+		Directory.Build.props: this file is imported after the project body, so a single-TargetFramework
+		project's <TargetFramework> element has already run and $(TargetFramework) is set. In
+		Directory.Build.props, $(TargetFramework) is still empty at import time for such projects,
+		so these conditions would silently evaluate to false there.
+	-->
+
+	<!-- Windows -->
+	<PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
+		<SupportedOSPlatformVersion >7.0</SupportedOSPlatformVersion>
+		<TargetPlatformMinVersion>7.0</TargetPlatformMinVersion>
+	</PropertyGroup>
+
+	<!-- Android -->
+	<PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+		<SupportedOSPlatformVersion>26.0</SupportedOSPlatformVersion>
+		<TargetPlatformMinVersion>26.0</TargetPlatformMinVersion>
+	</PropertyGroup>
+
+	<!-- iOS -->
+	<PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
+		<SupportedOSPlatformVersion >12.0</SupportedOSPlatformVersion>
+	</PropertyGroup>
+	<!-- Mac -->
+	<PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">
+		<SupportedOSPlatformVersion >14.0</SupportedOSPlatformVersion>
+	</PropertyGroup>
+
+	<!-- Android AoT and Optimizations -->
+	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)'=='Debug|$(YmcDotNetVersion)-android'">
+		<IsTrimmable>True</IsTrimmable>
+		<IsAotCompatible>True</IsAotCompatible>
+		<TrimMode>link</TrimMode>
+		<EnableLLVM>True</EnableLLVM>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)'=='Release|$(YmcDotNetVersion)-android'">
+		<IsTrimmable>True</IsTrimmable>
+		<IsAotCompatible>True</IsAotCompatible>
+		<Optimize>True</Optimize>
+		<RunAOTCompilation>True</RunAOTCompilation>
+		<PublishTrimmed>True</PublishTrimmed>
+		<TrimMode>link</TrimMode>
+		<EnableLLVM>True</EnableLLVM>
+	</PropertyGroup>
+</Project>

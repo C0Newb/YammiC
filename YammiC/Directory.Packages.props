@@ -1,0 +1,27 @@
+﻿<Project>
+  <!-- https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Avalonia packages -->
+    <!-- Important: keep version in sync! -->
+    <PackageVersion Include="Avalonia" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Desktop" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.iOS" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Browser" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Android" Version="12.1.4" />
+    <PackageVersion Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3" />
+    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <!-- YccuSdk imaging. Keep in sync with the SkiaSharp version Avalonia.Skia depends on (3.119.4 for Avalonia 12.1). -->
+    <PackageVersion Include="SkiaSharp" Version="4.153.1" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.WebAssembly" Version="4.153.1" />
+    <PackageVersion Include="System.Drawing.Common" Version="10.0.13" />
+    <PackageVersion Include="Xamarin.AndroidX.Core.SplashScreen" Version="1.2.0.3" />
+    <!-- Keep in sync with Xamarin.AndroidX.Core (comes in through CNCO.Unify.Notifications, currently 1.19.0.1).
+             The splash screen package otherwise drags in an older Core.Ktx and D8 fails with duplicate androidx.core classes. -->
+    <PackageVersion Include="Xamarin.AndroidX.Core.Core.Ktx" Version="1.19.0.1" />
+  </ItemGroup>
+</Project>

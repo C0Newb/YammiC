@@ -1,0 +1,999 @@
+using CNCO.YccuSdk.Can;
+using CNCO.YccuSdk.Handlers;
+using CNCO.YccuSdk.Logging;
+using CNCO.YccuSdk.Models;
+using CNCO.YccuSdk.Navigation;
+using CNCO.YccuSdk.Screens;
+using CNCO.YccuSdk.Packets;
+using CNCO.YccuSdk.Packets.App;
+using CNCO.YccuSdk.Packets.Ccu;
+using CNCO.YccuSdk.Platform;
+using CNCO.YccuSdk.Reels;
+using CNCO.YccuSdk.Providers;
+using CNCO.YccuSdk.Vpb;
+using CNCO.YccuSdk.Yrc;
+using SkiaSharp;
+
+namespace CNCO.YccuSdk.Bike;
+
+/// <summary>
+/// Optional pieces for <see cref="BikeService"/>. Anything left null is simply not wired up.
+/// </summary>
+public class BikeServiceOptions
+{
+    /// <summary>Weather source; defaults to <see cref="DemoWeatherProvider"/>.</summary>
+    public IYmcWeatherProvider? WeatherProvider { get; init; }
+
+    /// <summary>Phone-call events (from CNCO.Unify.Device). Null: no call relaying.</summary>
+    public IYmcCallStateSource? CallSource { get; init; }
+
+    /// <summary>Media-session events (from CNCO.Unify.Device). Null: no media relaying.</summary>
+    public IYmcMediaSource? MediaSource { get; init; }
+
+    /// <summary>Handlebar media buttons. Null: handler not registered.</summary>
+    public IYmcMediaController? MediaController { get; init; }
+
+    /// <summary>Handlebar call answer/reject. Null: handler not registered.</summary>
+    public IYmcCallController? CallController { get; init; }
+
+    /// <summary>Whether a bike headset is reported as connected (the CCU gates music metadata behind it).</summary>
+    public bool HeadsetConnected { get; init; } = true;
+
+    /// <summary>The Kotlin app pushed a "YammiC - It works!" notification on every connect.</summary>
+    public bool SendTestNotification { get; init; } = true;
+
+    /// <summary>If set, sent to the VPB 15s after connecting (the Kotlin app's sandwich image). Any common image format.</summary>
+    public byte[]? DemoVpbImage { get; init; }
+
+    /// <summary>If set, played on the navigation screen once it becomes active (the Kotlin app's rotating sandwich). GIF or WebP.</summary>
+    public byte[]? DemoNavigationAnimation { get; init; }
+
+    /// <summary>
+    /// Report a saved home and office to the CCU so its "Go home"/"Go to work" buttons reach the phone (they are
+    /// answered with a pit board message). Turn off if the CCU rejects the navigation link.
+    /// </summary>
+    public bool ReportHomeAndOffice { get; init; } = true;
+
+    public bool VpbEnabled { get; init; } = true;
+
+    public bool NavigationEnabled { get; init; } = true;
+
+    /// <summary>Plays the reels folder for Reels Mode. Null: Reels Mode is unavailable (the platform has no video support).</summary>
+    public IReelsPlatform? ReelsPlatform { get; init; }
+}
+
+/// <summary>
+/// The platform-neutral part of the Kotlin BikeForegroundService: owns the request handlers, the
+/// on-connect sequence, the VPB / navigation toggles and the call + media relays. The Android head wraps this in a
+/// real foreground service (notification, keep-alive); everything else lives here so other platforms can reuse it.
+/// </summary>
+public class BikeService
+{
+    private readonly Logger _log;
+    private readonly YmcConnectionBroker _controller;
+    private readonly NavigationSdk _navigation;
+    private readonly YmcPlatform _platform;
+    private readonly BikeServiceOptions _options;
+    private readonly CancellationToken _lifetime;
+
+    private readonly YmcCallStateRelay? _phoneCallMonitor;
+    private readonly YmcMediaStateRelay? _mediaStateMonitor;
+
+    private const string AutoConnectKey = "auto_connect";
+    private const string HomeAndWorkKey = "report_home_work";
+    private const string LegacyDashboardKey = "nav_dashboard";
+    private const string NavModeKey = "nav_mode";
+    private const string ReelsFolderKey = "reels_folder";
+    private const string ReelsFolderNameKey = "reels_folder_name";
+    private const string VpbScreenKey = "vpb_screen";
+    private const string CanDataKey = "can_data";
+    private const string CanIdsKey = "can_ids";
+    private const string CanExtraIdsKey = "can_extra_ids";
+
+    private readonly CanTelemetry _can;
+    private bool _canDataEnabled;
+    private IReadOnlyList<int> _canIds = CanSignals.DefaultIds;
+    private IReadOnlyList<int> _canExtraIds = Array.Empty<int>();
+    private readonly BikeDiscovery _discovery;
+    private readonly YrcSettingsClient _yrc;
+    private readonly ProfileLibrary _profileLibrary;
+    private readonly LapTimer _lapTimer;
+    private readonly ScreenLayoutStore _screens;
+    private readonly ScreenPresenter _navScreen;
+    private readonly ScreenPresenter _vpbScreen;
+    private volatile ScreenLayout _navLayout;
+    private volatile ScreenLayout _vpbLayout;
+    private bool _vpbScreenEnabled;
+    private DateTime _connectedAt = DateTime.MaxValue;
+    private NavMode _navMode;
+    private readonly ReelsController? _reels;
+    private CancellationTokenSource? _dayNightLoop;
+
+    private bool _homeAndWorkEnabled;
+
+    private bool _autoConnectEnabled;
+    private bool _vpbEnabled;
+    private bool _navigationEnabled;
+    private string _vpbStatus = "Idle";
+    private bool _navigationWasActive;
+    private bool _started;
+
+    public BikeService(
+        YmcConnectionBroker controller,
+        NavigationSdk navigation,
+        YmcPlatform platform,
+        Logger logger,
+        BikeServiceOptions? options = null,
+        CancellationToken lifetime = default)
+    {
+        _controller = controller;
+        _navigation = navigation;
+        _platform = platform;
+        _log = logger;
+        _options = options ?? new BikeServiceOptions();
+        _lifetime = lifetime;
+        _vpbEnabled = _options.VpbEnabled;
+        _autoConnectEnabled = platform.Storage.GetString(AutoConnectKey) != "0"; // on unless the user turned it off
+        _navigationEnabled = _options.NavigationEnabled;
+        var storedHomeAndWork = platform.Storage.GetString(HomeAndWorkKey);
+        _homeAndWorkEnabled = storedHomeAndWork == null ? _options.ReportHomeAndOffice : storedHomeAndWork != "0";
+        _navMode = LoadNavMode(platform.Storage);
+        if (_options.ReelsPlatform != null)
+            _reels = new ReelsController(_options.ReelsPlatform, navigation, () => ReelsFolder, logger);
+        _screens = new ScreenLayoutStore(platform.Storage);
+        _navLayout = _screens.Load(ScreenTarget.Navigation);
+        _vpbLayout = _screens.Load(ScreenTarget.VirtualPitBoard);
+        _vpbScreenEnabled = platform.Storage.GetString(VpbScreenKey) == "1"; // off unless the user turned it on
+        _canDataEnabled = platform.Storage.GetString(CanDataKey) == "1"; // off unless the user turned it on
+        var storedIds = platform.Storage.GetString(CanIdsKey);
+        if (storedIds != null)
+            _canIds = storedIds.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => int.TryParse(s, out var id) ? id : -1).Where(CanSignals.KnownIds.Contains).ToList();
+        _can = new CanTelemetry(logger);
+        _discovery = new BikeDiscovery(logger);
+        _yrc = new YrcSettingsClient(controller, logger);
+        _profileLibrary = new ProfileLibrary(platform.Storage);
+        _lapTimer = new LapTimer(controller, logger);
+        var storedExtra = platform.Storage.GetString(CanExtraIdsKey);
+        if (!string.IsNullOrEmpty(storedExtra))
+            _canExtraIds = storedExtra.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => int.TryParse(s, out var id) ? id : -1).Where(id => id is >= 0 and <= 0xFFFF).ToList();
+        _can.Updated += () => CanChanged?.Invoke();
+
+        ScreenContext CurrentContext() =>
+            new(DateTime.Now, MediaMetadata, _navigation.DayNightMode == NavDayNightMode.Night, _navigation.Zoom,
+                _canDataEnabled ? _can.Values(DateTime.UtcNow) : null);
+
+        _navScreen = new ScreenPresenter(
+            "NavScreen",
+            () => _navLayout,
+            CurrentContext,
+            () => (navigation.DisplaySize.Width, navigation.DisplaySize.Height),
+            () => navigation.State is NavigationState.Active,
+            jpeg =>
+            {
+                navigation.PushImage(jpeg);
+                return Task.FromResult(true);
+            },
+            tick: TimeSpan.FromSeconds(1),
+            minInterval: TimeSpan.Zero,
+            quality: 85,
+            logger,
+            wantsFastTick: () => _canDataEnabled && ScreenVariables.UsesCan(_navLayout),
+            fastTick: TimeSpan.FromMilliseconds(500));
+
+        // A pit board picture is a multi-chunk transfer, so: check rarely, send rarely, and not while the connect
+        // sequence is still using the board (its "Connected" message).
+        _vpbScreen = new ScreenPresenter(
+            "VpbScreen",
+            () => _vpbLayout,
+            () => CurrentContext() with { Zoom = 1f }, // the pit board has no zoom
+            () => ScreenSizes.DesignSize(ScreenTarget.VirtualPitBoard),
+            () => _vpbEnabled && _vpbScreenEnabled && _controller.IsBikeConnected &&
+                  DateTime.UtcNow - _connectedAt > TimeSpan.FromSeconds(8),
+            async jpeg =>
+            {
+                var sent = await _controller.SendVirtualPitBoardMessageAsync(jpeg).ConfigureAwait(false);
+                if (sent) SetVpbStatus("Custom screen");
+                return sent;
+            },
+            tick: TimeSpan.FromSeconds(3),
+            minInterval: TimeSpan.FromSeconds(15),
+            quality: 85,
+            logger);
+
+        if (_options.CallSource != null)
+        {
+            _phoneCallMonitor = new YmcCallStateRelay(_options.CallSource, () => _controller.MessageBroker, logger);
+        }
+        if (_options.MediaSource != null)
+        {
+            _mediaStateMonitor = new YmcMediaStateRelay(_options.MediaSource, () => _controller.MessageBroker, logger);
+            _mediaStateMonitor.LatestMetadataChanged += metadata =>
+            {
+                MediaMetadataChanged?.Invoke(metadata);
+                _navScreen.Refresh();
+                _vpbScreen.Refresh();
+            };
+        }
+    }
+
+    public YmcConnectionBroker Controller => _controller;
+
+    public NavigationSdk Navigation => _navigation;
+
+    // -- Feature toggles ------------------------------------------------------
+    // VPB (Virtual Pit Board) and navigation share the CCU's display and may interfere with each
+    // other. These let the user disable one independently to isolate/avoid conflicts.
+
+    public bool VpbEnabled => _vpbEnabled;
+
+    public bool NavigationEnabled => _navigationEnabled;
+
+    public string VpbStatus => _vpbStatus;
+
+    /// <summary>Latest media metadata, or null when there is no media source / nothing yet.</summary>
+    public YmcMediaMetaData? MediaMetadata => _mediaStateMonitor?.LatestMetadata;
+
+    /// <summary>Raised when <see cref="VpbEnabled"/>, <see cref="NavigationEnabled"/> or <see cref="VpbStatus"/> change.</summary>
+    public event Action? StatusChanged;
+
+    public event Action<YmcMediaMetaData?>? MediaMetadataChanged;
+
+    /// <summary>
+    /// Toggles VPB pushes. When disabled, all VPB sends (onConnect, ticker, nav-button echo) are
+    /// dropped and any currently-displayed VPB message is cleared. Takes effect immediately if
+    /// the bike is connected.
+    /// </summary>
+    public void SetVpbEnabled(bool enabled)
+    {
+        _vpbEnabled = enabled;
+        if (!enabled)
+        {
+            SetVpbStatus("Disabled");
+            if (_controller.IsBikeConnected)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _controller.ClearVirtualPitBoardAsync().ConfigureAwait(false);
+                    }
+                    catch (Exception t)
+                    {
+                        _log.Debug($"setVpbEnabled: clearVirtualPitBoard failed: {t.Message}");
+                    }
+                });
+            }
+        }
+        else
+        {
+            SetVpbStatus("Idle");
+        }
+    }
+
+    /// <summary>
+    /// Sends an image (PNG, JPEG, ...) to the Virtual Pit Board, converting it to the 600x306 JPEG the CCU wants.
+    /// Returns false if VPB is disabled, the bike isn't connected, the image can't be decoded, or the CCU rejected it.
+    /// </summary>
+    public async Task<bool> SendVpbImageAsync(byte[] encodedImage)
+    {
+        if (!_vpbEnabled) return false;
+        var image = await Task.Run(() => VpbImageBuilder.FromEncodedImage(encodedImage)).ConfigureAwait(false);
+        if (image == null)
+        {
+            _log.Debug("sendVpbImage: failed to decode image");
+            return false;
+        }
+        var sent = await _controller.SendVirtualPitBoardMessageAsync(image).ConfigureAwait(false);
+        if (sent) SetVpbStatus("Custom image");
+        return sent;
+    }
+
+    /// <summary>Clears whatever the Virtual Pit Board is showing. False if not connected or the CCU rejected it.</summary>
+    public async Task<bool> ClearVpbAsync()
+    {
+        var cleared = await _controller.ClearVirtualPitBoardAsync().ConfigureAwait(false);
+        if (cleared) SetVpbStatus("Idle");
+        return cleared;
+    }
+
+    /// <summary>
+    /// Toggles the navigation-screen link. Activates/deactivates it immediately if the bike is
+    /// connected; otherwise just remembered for the next connection.
+    /// </summary>
+    public void SetNavigationEnabled(bool enabled)
+    {
+        _navigationEnabled = enabled;
+        StatusChanged?.Invoke();
+        if (!_controller.IsBikeConnected) return;
+        if (enabled)
+        {
+            _navigation.Activate();
+        }
+        else
+        {
+            _navigation.Deactivate();
+        }
+    }
+
+    private void SetVpbStatus(string status)
+    {
+        _vpbStatus = status;
+        StatusChanged?.Invoke();
+    }
+
+    // -- Lifecycle ------------------------------------------------------------
+
+    /// <summary>Registers the CCU request handlers and the on-connect job, and starts the monitors. Idempotent.</summary>
+    public void Start()
+    {
+        if (_started) return;
+        _started = true;
+
+        var handler = _controller.MessageHandler;
+        if (_options.MediaController != null)
+        {
+            handler.RegisterHandler(
+                YmcCommandCode.MusicControlRequest,
+                (ph, d) => new CcuMusicControlRequest(ph, d),
+                new CcuMediaControlRequestHandler(_options.MediaController, _log));
+        }
+        handler.RegisterHandler(
+            YmcCommandCode.PhoneVolumeControlRequest,
+            (ph, d) => new CcuVolumeControlRequest(ph, d),
+            new CcuVolumeControlRequestHandler(_platform.Volume, _log));
+        handler.RegisterHandler(
+            YmcCommandCode.BluetoothHeadsetStateRequest,
+            (ph, d) => new CcuBluetoothHeadsetStateRequest(ph, d),
+            new CcuBluetoothHeadsetStateRequestHandler(_options.HeadsetConnected));
+        handler.RegisterHandler(
+            YmcCommandCode.WeatherRequest,
+            (ph, d) => new CcuWeatherRequest(ph, d),
+            new CcuWeatherRequestHandler(_options.WeatherProvider ?? new DemoWeatherProvider()));
+        if (_options.CallController != null)
+        {
+            handler.RegisterHandler(
+                YmcCommandCode.IncomingCallControl,
+                (ph, d) => new CcuIncomingCallControlRequest(ph, d),
+                new CcuIncomingCallControlRequestHandler(_options.CallController));
+        }
+        handler.RegisterHandler(
+            YmcCommandCode.PhoneCellSignalLevelRequest,
+            (ph, d) => new CcuPhoneCellSignalLevelRequest(ph, d),
+            new CcuPhoneCellSignalLevelRequestHandler(_platform.PhoneStatus));
+
+        _controller.AddOnConnectJob(OnConnectAsync);
+        _can.Start(_controller.Notifications, _lifetime);
+        _discovery.Start(_controller.Notifications, _lifetime);
+        _yrc.Start(_controller.Notifications, _lifetime);
+        _lapTimer.Start(_controller.Notifications, _lifetime);
+
+        _phoneCallMonitor?.Start();
+        _mediaStateMonitor?.Start();
+
+        _navigation.StateChanged += OnNavigationStateChanged;
+        _navigation.ReportHomeAndOffice = _homeAndWorkEnabled;
+        _navigation.SetDayNightMode(CurrentDayNightMode());
+        if (_vpbScreenEnabled) _vpbScreen.Start();
+        _navigation.OnZoomInRequested = () =>
+        {
+            _log.Debug("Navigation: CCU requested zoom in");
+            OnZoomRequest(zoomIn: true);
+        };
+        _navigation.OnZoomOutRequested = () =>
+        {
+            _log.Debug("Navigation: CCU requested zoom out");
+            OnZoomRequest(zoomIn: false);
+        };
+        // Three demo favorites until there is a real saved-places source.
+        _navigation.SetPois(NavPoiList.Favorites, new[]
+        {
+            new NavPoi("Sandwich Shop", "Main St", 1, NavPoiDirection.Front),
+            new NavPoi("Coffee Stop", "Oak Ave", 2, NavPoiDirection.Right),
+            new NavPoi("Scenic Overlook", "Ridge Rd", 3, NavPoiDirection.BackLeft),
+        });
+        _navigation.OnPoiSelected = selection =>
+        {
+            var name = selection.Poi?.Name ?? $"item {selection.ItemIndex}";
+            _log.Debug($"Navigation: CCU selected {selection.List} #{selection.ItemIndex} ({name}), routeOption={selection.RouteOption}");
+            SendNavRequestNotification($"Selected: {name}");
+        };
+        _navigation.OnGoHomeRequested = () =>
+        {
+            _log.Debug("Navigation: CCU requested 'Go home'");
+            SendNavRequestNotification("Go home clicked");
+        };
+        _navigation.OnGoToWorkRequested = () =>
+        {
+            _log.Debug("Navigation: CCU requested 'Go to work'");
+            SendNavRequestNotification("Go to work clicked");
+        };
+    }
+
+    /// <summary>Stops the monitors and tears the connection down.</summary>
+    public void Stop()
+    {
+        _phoneCallMonitor?.Stop();
+        _mediaStateMonitor?.Stop();
+        _navigation.StateChanged -= OnNavigationStateChanged;
+        _navScreen.Stop();
+        _reels?.Stop();
+        _vpbScreen.Stop();
+        StopDayNightLoop();
+        _navigation.Deactivate();
+        _controller.Disconnect();
+        _started = false;
+    }
+
+    /// <summary>Call after the user grants READ_PHONE_STATE etc. at runtime so monitoring can start.</summary>
+    public void RestartPhoneCallMonitor() => _phoneCallMonitor?.Start();
+
+    /// <summary>
+    /// Re-starts the call and media monitors. Both are safe to call repeatedly and pick up where a
+    /// permission or access grant was missing the last time (e.g. when the app is resumed after the user visited settings).
+    /// </summary>
+    public void RestartMonitors()
+    {
+        _phoneCallMonitor?.Start();
+        _mediaStateMonitor?.Start();
+    }
+
+    // -- Bike (CAN) data ---------------------------------------------------
+
+    /// <summary>The latest CAN readings (raw and decoded).</summary>
+    public CanTelemetry Can => _can;
+
+    /// <summary>The bike's ride-mode settings (profiles).</summary>
+    public YrcSettingsClient Yrc => _yrc;
+
+    /// <summary>The rider's saved ride modes.</summary>
+    public ProfileLibrary ProfileLibrary => _profileLibrary;
+
+    /// <summary>A stopwatch that reports laps to the bike.</summary>
+    public LapTimer LapTimer => _lapTimer;
+
+    /// <summary>Decoded CAN values that are fresh right now (all null while <see cref="CanDataEnabled"/> is off).</summary>
+    public CanValues CanValues => _canDataEnabled ? _can.Values(DateTime.UtcNow) : CanValues.Empty;
+
+    /// <summary>Raised when a CAN response arrived (as often as the poll interval), or the setting changed.</summary>
+    public event Action? CanChanged;
+
+    /// <summary>
+    /// Whether the bike is asked for CAN data on connect (it adds continuous Bluetooth traffic). Persisted; turning it on
+    /// asks right away when connected. Turning it off stops using the data now but the bike keeps sending until the next connection.
+    /// </summary>
+    public bool CanDataEnabled
+    {
+        get => _canDataEnabled;
+        set
+        {
+            if (_canDataEnabled == value) return;
+            _canDataEnabled = value;
+            _platform.Storage.SetString(CanDataKey, value ? "1" : "0");
+            if (value && _controller.IsBikeConnected)
+            {
+                var broker = _controller.MessageBroker;
+                if (broker != null) _ = Task.Run(() => RunOnConnectStepAsync("request CAN data", () => RequestCanDataAsync(broker)));
+            }
+            CanChanged?.Invoke();
+        }
+    }
+
+    private Task RequestCanDataAsync(YmcMessageBroker broker)
+    {
+        var ids = _canIds.Concat(_canExtraIds).Distinct().ToList();
+        return ids.Count == 0
+            ? Task.CompletedTask
+            : new AppCanIntervalRequest(broker.PacketHandler, ids, CanIntervalMs).SendAsync(broker.ConnectionContext);
+    }
+
+    // The page and the screens refresh about twice a second, so asking more than 4 times a second only adds traffic.
+    private const int CanIntervalMs = 250;
+
+    /// <summary>
+    /// Additional CAN IDs to ask for, any value 0..0xFFFF, for exploring what the bike reports (they show up in the raw table
+    /// if the bike answers). Persisted; applied right away when connected.
+    /// </summary>
+    public IReadOnlyList<int> CanExtraIds
+    {
+        get => _canExtraIds;
+        set
+        {
+            var ids = value.Where(id => id is >= 0 and <= 0xFFFF).Distinct().OrderBy(i => i).Take(64).ToList();
+            if (ids.SequenceEqual(_canExtraIds)) return;
+            _canExtraIds = ids;
+            _platform.Storage.SetString(CanExtraIdsKey, string.Join(",", ids));
+            if (_canDataEnabled && _controller.IsBikeConnected)
+            {
+                var broker = _controller.MessageBroker;
+                if (broker != null) _ = Task.Run(() => RunOnConnectStepAsync("request CAN data", () => RequestCanDataAsync(broker)));
+            }
+            CanChanged?.Invoke();
+        }
+    }
+
+    /// <summary>
+    /// Asks the bike for its ECU server list and, for each server, the data IDs it supports. Returns a text report.
+    /// </summary>
+    public async Task<string> DiscoverSupportedSignalsAsync()
+    {
+        var broker = _controller.MessageBroker;
+        if (broker == null) return "Not connected.";
+
+        _discovery.Reset();
+        await new AppConnectServerListRequest(broker.PacketHandler).SendAsync(broker.ConnectionContext).ConfigureAwait(false);
+        if (!await BikeDiscovery.WaitAsync(() => _discovery.Servers != null, TimeSpan.FromSeconds(5)).ConfigureAwait(false))
+            return "The bike did not answer the server list request (see the log for any raw reply).";
+
+        foreach (var server in _discovery.Servers!)
+        {
+            await new AppSupportIdListRequest(broker.PacketHandler, server).SendAsync(broker.ConnectionContext).ConfigureAwait(false);
+            await BikeDiscovery.WaitAsync(() => _discovery.HasSupportFor(server), TimeSpan.FromSeconds(4)).ConfigureAwait(false);
+        }
+        return _discovery.Report();
+    }
+
+    /// <summary>The CAN IDs asked for (a subset of <see cref="CanSignals.KnownIds"/>). Persisted; applied right away when connected.</summary>
+    public IReadOnlyList<int> CanSignalIds
+    {
+        get => _canIds;
+        set
+        {
+            var ids = value.Where(CanSignals.KnownIds.Contains).Distinct().OrderBy(i => i).ToList();
+            if (ids.SequenceEqual(_canIds)) return;
+            _canIds = ids;
+            _platform.Storage.SetString(CanIdsKey, string.Join(",", ids));
+            if (_canDataEnabled && _controller.IsBikeConnected)
+            {
+                var broker = _controller.MessageBroker;
+                if (broker != null) _ = Task.Run(() => RunOnConnectStepAsync("request CAN data", () => RequestCanDataAsync(broker)));
+            }
+            CanChanged?.Invoke();
+        }
+    }
+
+    // -- Auto connect ---------------------------------------------------------
+
+    /// <summary>
+    /// Whether the navigation link reports a saved home and work address, which activates the CCU's "Go home" /
+    /// "Go to work" buttons. Persisted; takes effect immediately by restarting the navigation link if it is running.
+    /// </summary>
+    public bool HomeAndWorkEnabled
+    {
+        get => _homeAndWorkEnabled;
+        set
+        {
+            if (_homeAndWorkEnabled == value) return;
+            _homeAndWorkEnabled = value;
+            _platform.Storage.SetString(HomeAndWorkKey, value ? "1" : "0");
+            _navigation.ReportHomeAndOffice = value;
+            if (_navigationEnabled && _controller.IsBikeConnected)
+            {
+                _navigation.Deactivate();
+                _navigation.Activate();
+            }
+        }
+    }
+
+    /// <summary>Whether <see cref="OnBikeBluetoothConnected"/> starts a connection attempt.</summary>
+    public bool AutoConnectEnabled
+    {
+        get => _autoConnectEnabled;
+        set
+        {
+            _autoConnectEnabled = value;
+            _platform.Storage.SetString(AutoConnectKey, value ? "1" : "0");
+        }
+    }
+
+    /// <summary>
+    /// Call for every Bluetooth device that connects to the phone; works out whether it is the bike and, if so, auto connects.
+    /// The bike is recognised by its configured name, any YCCU name, or the address it had when last found (its Classic Bluetooth
+    /// name can differ from the BLE name it advertises, so the address is the reliable one). Every event is logged so a
+    /// missed auto connect can be diagnosed.
+    /// </summary>
+    public void OnBluetoothDeviceConnected(string? name, string? address)
+    {
+        var knownAddress = _controller.BikeAddress;
+        var configuredName = _controller.State.DeviceName;
+        var isBike =
+            (!string.IsNullOrEmpty(address) && string.Equals(address, knownAddress, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrEmpty(name) &&
+             (string.Equals(name, configuredName, StringComparison.OrdinalIgnoreCase) ||
+              name.StartsWith("YCCU", StringComparison.OrdinalIgnoreCase) ||
+              name.Contains("CCU", StringComparison.OrdinalIgnoreCase)));
+        _log.Debug($"bluetooth: ACL connected name={name ?? "?"} address={address ?? "?"} knownBike={knownAddress ?? "?"} isBike={isBike}");
+        if (isBike) OnBikeBluetoothConnected(name ?? address);
+    }
+
+    /// <summary>
+    /// Call when the OS reports that the phone's Bluetooth connected to the bike (a YCCU device).
+    /// Starts a connection attempt unless one is running, the bike is already connected, or auto connect is off.
+    /// This is event driven, so unlike polling/scanning it costs nothing while the bike is away.
+    /// </summary>
+    public void OnBikeBluetoothConnected(string? deviceName)
+    {
+        if (!AutoConnectEnabled)
+        {
+            _log.Debug($"autoConnect: {deviceName} connected, but auto connect is off");
+            return;
+        }
+        if (_controller.IsBikeConnected || _controller.IsConnecting)
+        {
+            _log.Debug($"autoConnect: {deviceName} connected, already connected/connecting");
+            return;
+        }
+
+        _log.Debug($"autoConnect: {deviceName} connected, connecting");
+        try
+        {
+            _controller.ConnectAndSend();
+        }
+        catch (Exception e)
+        {
+            _log.Debug($"autoConnect: failed to start connecting: {e.Message}");
+        }
+    }
+
+    // -- On connect -----------------------------------------------------------
+
+    // Each step below is isolated in its own try/catch: a DDT timeout on an earlier
+    // step (e.g. the test notification) must not prevent later steps (the real call
+    // state and media metadata push) from running. AddOnConnectJob only isolates
+    // failures between separately-registered jobs, not between lines within one job.
+    private async Task OnConnectAsync(YmcMessageBroker broker)
+    {
+        _connectedAt = DateTime.UtcNow;
+        _can.Clear();
+        _yrc.Clear();
+        _vpbScreen.Invalidate();
+        await RunOnConnectStepAsync("phone state", async () =>
+        {
+            await broker.SendPhoneStateAsync(_options.HeadsetConnected).ConfigureAwait(false);
+            await broker.SendPhoneThermalStateAsync().ConfigureAwait(false);
+            await broker.SendNotificationCategoryAsync(incomingCall: true, missedCall: true, social: true, other: true)
+                .ConfigureAwait(false);
+        }).ConfigureAwait(false);
+
+        if (_options.SendTestNotification)
+        {
+            await RunOnConnectStepAsync(
+                "test notification",
+                () => broker.SendNotificationAsync(id: 1, title: "YammiC", detail: "It works!")).ConfigureAwait(false);
+        }
+
+        if (_phoneCallMonitor != null)
+        {
+            await RunOnConnectStepAsync("first time call state", _phoneCallMonitor.PushCurrentCallStateAsync).ConfigureAwait(false);
+        }
+        if (_mediaStateMonitor != null)
+        {
+            await RunOnConnectStepAsync("first time media state", () =>
+            {
+                _mediaStateMonitor.PushMetadata();
+                return Task.CompletedTask;
+            }).ConfigureAwait(false);
+        }
+
+        await RunOnConnectStepAsync("send Connected message via VPB", async () =>
+        {
+            if (_vpbEnabled)
+            {
+                var vpbConnected = await _controller.SendVirtualPitBoardMessageAsync(
+                    VpbImageBuilder.FromText("Connected!", SKColors.Green)).ConfigureAwait(false);
+                _log.Debug($"Virtual Pit Board Connected message result: {vpbConnected}");
+                if (vpbConnected) SetVpbStatus("Connected message");
+            }
+            else
+            {
+                _log.Debug("VPB disabled, skipping Connected message");
+            }
+        }).ConfigureAwait(false);
+
+        if (_canDataEnabled)
+            await RunOnConnectStepAsync("request CAN data", () => RequestCanDataAsync(broker)).ConfigureAwait(false);
+
+        await RunOnConnectStepAsync("activate navigation screen", () =>
+        {
+            if (_navigationEnabled)
+            {
+                _navigation.Activate();
+            }
+            else
+            {
+                _log.Debug("Navigation disabled, skipping activate");
+            }
+            return Task.CompletedTask;
+        }).ConfigureAwait(false);
+
+        if (_options.DemoVpbImage != null && !_vpbScreenEnabled) // the custom screen replaces the demo image
+        {
+            // The Kotlin job awaited a 15s delay right here, which held up the "Done" state and the periodic jobs
+            // for that long. Run it on the side instead.
+            _ = Task.Run(() => RunOnConnectStepAsync("send demo image via VPB (delayed 15s)", async () =>
+            {
+                await Task.Delay(TimeSpan.FromSeconds(15), _lifetime).ConfigureAwait(false);
+                if (!_vpbEnabled)
+                {
+                    _log.Debug("VPB disabled, skipping demo image");
+                    return;
+                }
+                var vpbImage = VpbImageBuilder.FromEncodedImage(_options.DemoVpbImage);
+                if (vpbImage == null)
+                {
+                    _log.Debug("Failed to decode demo VPB image");
+                    return;
+                }
+                var result = await _controller.SendVirtualPitBoardMessageAsync(vpbImage).ConfigureAwait(false);
+                _log.Debug($"Demo image send result: {result}");
+                if (result) SetVpbStatus("Demo image");
+            }));
+        }
+    }
+
+    /// <summary>
+    /// Runs one onConnect step in isolation: a DDT timeout or other failure here is logged and
+    /// swallowed instead of aborting the remaining steps in the same onConnect job.
+    /// </summary>
+    private async Task RunOnConnectStepAsync(string label, Func<Task> block)
+    {
+        _log.Debug($"onConnect step: {label}");
+        try
+        {
+            await block().ConfigureAwait(false);
+        }
+        catch (Exception t)
+        {
+            _log.Debug($"onConnect step failed: {label}: {t.Message}");
+        }
+    }
+
+    private void OnNavigationStateChanged(NavigationState state)
+    {
+        // The state is re-published with every frame sent; only react to the transitions into and out of Active.
+        var active = state is NavigationState.Active;
+        var justBecameActive = active && !_navigationWasActive;
+        var justBecameInactive = !active && _navigationWasActive;
+        _navigationWasActive = active;
+
+        if (justBecameInactive)
+        {
+            _navScreen.Stop();
+            _reels?.Stop();
+            StopDayNightLoop();
+        }
+        if (!justBecameActive) return;
+
+        StartDayNightLoop();
+        ApplyNavigationContent();
+    }
+
+    /// <summary>
+    /// What the navigation screen shows once active, per <see cref="NavigationMode"/>: the custom screen, the reels, or
+    /// the demo animation.
+    /// </summary>
+    private void ApplyNavigationContent()
+    {
+        try
+        {
+            var mode = _navMode;
+            if (mode == NavMode.Reels && _reels == null)
+            {
+                _log.Debug("Reels Mode isn't available on this platform, showing the custom screen instead");
+                mode = NavMode.Ui;
+            }
+
+            if (mode == NavMode.Reels)
+            {
+                _log.Debug("Navigation active! Starting reels");
+                _navScreen.Stop();
+                _reels!.Start();
+                return;
+            }
+
+            _reels?.Stop();
+            if (mode == NavMode.Ui)
+            {
+                _log.Debug("Navigation active! Showing custom screen");
+                _navScreen.Start();
+                return;
+            }
+
+            _navScreen.Stop();
+            if (_options.DemoNavigationAnimation == null) return;
+            _log.Debug("Navigation active! Pushing demo animation");
+            _navigation.PushAnimatedImage(_options.DemoNavigationAnimation, quality: 90);
+            _navigation.SetRoadName("This is a test");
+        }
+        catch (Exception ex)
+        {
+            _log.Error($"Failed to update the navigation screen! {ex.Message}", ex);
+        }
+    }
+
+    // -- Day / night ----------------------------------------------------------
+
+    // The phone doesn't know the bike's headlight/ambient sensor, so this is time based: dark from 19:00 to 06:00.
+    private static NavDayNightMode CurrentDayNightMode()
+    {
+        var hour = DateTime.Now.Hour;
+        return hour is >= 19 or < 6 ? NavDayNightMode.Night : NavDayNightMode.Day;
+    }
+
+    private void StartDayNightLoop()
+    {
+        StopDayNightLoop();
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime);
+        _dayNightLoop = cancellation;
+        var token = cancellation.Token;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (true)
+                {
+                    _navigation.SetDayNightMode(CurrentDayNightMode());
+                    _navScreen.Refresh();
+                    _vpbScreen.Refresh();
+                    await Task.Delay(TimeSpan.FromMinutes(1), token).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Stopped.
+            }
+        });
+    }
+
+    private void StopDayNightLoop()
+    {
+        _dayNightLoop?.Cancel();
+        _dayNightLoop = null;
+    }
+
+    // -- Custom screens -------------------------------------------------------
+
+    /// <summary>A copy of the saved layout for <paramref name="target"/> (the default if none was saved), safe to edit.</summary>
+    public ScreenLayout GetScreenLayout(ScreenTarget target) =>
+        (target == ScreenTarget.Navigation ? _navLayout : _vpbLayout).Clone();
+
+    /// <summary>Saves <paramref name="layout"/> and puts it on the bike's display straight away (if that screen is running).</summary>
+    public void SaveScreenLayout(ScreenTarget target, ScreenLayout layout)
+    {
+        var copy = layout.Clone();
+        copy.Target = target;
+        _screens.Save(target, copy);
+        UseScreenLayout(target, copy);
+    }
+
+    /// <summary>Discards the saved layout for <paramref name="target"/> and goes back to the built-in one.</summary>
+    public void ResetScreenLayout(ScreenTarget target)
+    {
+        _screens.Reset(target);
+        UseScreenLayout(target, ScreenDefaults.For(target));
+    }
+
+    private void UseScreenLayout(ScreenTarget target, ScreenLayout layout)
+    {
+        if (target == ScreenTarget.Navigation)
+        {
+            _navLayout = layout;
+            _navScreen.Invalidate();
+        }
+        else
+        {
+            _vpbLayout = layout;
+            _vpbScreen.Invalidate();
+        }
+    }
+
+    /// <summary>
+    /// Whether the Virtual Pit Board shows the custom VPB screen (kept up to date, e.g. clock and music) instead of
+    /// the demo image and one-off messages. Persisted; off by default.
+    /// Images sent by hand are replaced again the next time the screen's content changes.
+    /// </summary>
+    public bool VpbScreenEnabled
+    {
+        get => _vpbScreenEnabled;
+        set
+        {
+            if (_vpbScreenEnabled == value) return;
+            _vpbScreenEnabled = value;
+            _platform.Storage.SetString(VpbScreenKey, value ? "1" : "0");
+            if (value) _vpbScreen.Start();
+            else _vpbScreen.Stop();
+        }
+    }
+
+    private static NavMode LoadNavMode(IYmcKeyValueStore storage)
+    {
+        if (Enum.TryParse<NavMode>(storage.GetString(NavModeKey), out var saved) && Enum.IsDefined(saved)) return saved;
+        // Before there were three modes the setting was "custom screen on/off", on unless turned off.
+        return storage.GetString(LegacyDashboardKey) == "0" ? NavMode.Sandwich : NavMode.Ui;
+    }
+
+    /// <summary>
+    /// What the navigation screen shows: the sandwich, the custom screen (<see cref="GetScreenLayout"/>) or the reels.
+    /// Persisted; takes effect immediately if the navigation screen is active.
+    /// </summary>
+    public NavMode NavigationMode
+    {
+        get => _navMode;
+        set
+        {
+            if (_navMode == value) return;
+            _navMode = value;
+            _platform.Storage.SetString(NavModeKey, value.ToString());
+            if (_navigationWasActive) ApplyNavigationContent();
+        }
+    }
+
+    // -- Reels ----------------------------------------------------------------
+
+    /// <summary>Whether this platform can play videos for Reels Mode.</summary>
+    public bool ReelsSupported => _reels != null;
+
+    /// <summary>The reels folder (an opaque platform URI), or null if none was chosen.</summary>
+    public string? ReelsFolder
+    {
+        get
+        {
+            var folder = _platform.Storage.GetString(ReelsFolderKey);
+            return string.IsNullOrEmpty(folder) ? null : folder;
+        }
+    }
+
+    /// <summary>A short name of the reels folder for display.</summary>
+    public string? ReelsFolderName
+    {
+        get
+        {
+            var name = _platform.Storage.GetString(ReelsFolderNameKey);
+            return string.IsNullOrEmpty(name) ? null : name;
+        }
+    }
+
+    /// <summary>Chooses the reels folder; restarts the reels if they are showing.</summary>
+    public void SetReelsFolder(string folderUri, string? displayName)
+    {
+        _options.ReelsPlatform?.RememberFolder(folderUri);
+        _platform.Storage.SetString(ReelsFolderKey, folderUri);
+        _platform.Storage.SetString(ReelsFolderNameKey, displayName ?? "");
+        if (_navigationWasActive && _navMode == NavMode.Reels) _reels?.Start();
+    }
+
+    /// <summary>The bike's zoom buttons: in Reels Mode they scroll the videos (the zoom is left alone), otherwise they zoom.</summary>
+    private void OnZoomRequest(bool zoomIn)
+    {
+        if (_navMode == NavMode.Reels && _reels != null)
+        {
+            if (zoomIn) _reels.Next();
+            else _reels.Previous();
+            // The bike greys out its buttons until it hears the zoom level back, even when nothing zoomed.
+            _navigation.AcknowledgeZoom();
+            return;
+        }
+
+        if (zoomIn) _navigation.ZoomIn();
+        else _navigation.ZoomOut();
+        _navScreen.Refresh();
+    }
+
+    /// <summary>Sends a fake Virtual Pit Board notification announcing which nav-screen button was tapped.</summary>
+    private void SendNavRequestNotification(string message)
+    {
+        if (!_vpbEnabled) return;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var image = VpbImageBuilder.FromText(message, SKColors.Green);
+                var sent = await _controller.SendVirtualPitBoardMessageAsync(image).ConfigureAwait(false);
+                if (sent) SetVpbStatus(message);
+            }
+            catch (Exception t)
+            {
+                _log.Debug($"sendNavRequestNotification failed: {t.Message}");
+            }
+        });
+    }
+}

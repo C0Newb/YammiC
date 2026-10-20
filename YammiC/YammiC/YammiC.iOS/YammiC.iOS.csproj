@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>YammiC</RootNamespace>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>$(YmcIosTargetFramework)</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.iOS" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\YammiC\YammiC.csproj" />
+  </ItemGroup>
+</Project>

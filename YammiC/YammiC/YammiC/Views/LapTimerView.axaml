@@ -1,0 +1,50 @@
+<ContentPage xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:YammiC.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
+             Header="Lap timer"
+             x:DataType="vm:LapTimerViewModel"
+             x:Class="YammiC.Views.LapTimerView">
+    <Design.DataContext>
+        <vm:LapTimerViewModel />
+    </Design.DataContext>
+
+    <ScrollViewer>
+        <StackPanel Margin="16" Spacing="16">
+            <TextBlock TextWrapping="Wrap" Opacity="0.7" FontSize="12" Text="{Binding Status}" />
+
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="subtitle" Text="Total" />
+                    <TextBlock FontSize="36" FontFamily="Consolas,Menlo,monospace" Text="{Binding Elapsed}" />
+                    <TextBlock Classes="subtitle" Text="This lap" />
+                    <TextBlock FontSize="24" FontFamily="Consolas,Menlo,monospace" Text="{Binding CurrentLap}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Start" Command="{Binding StartCommand}" />
+                        <Button Content="Lap" Command="{Binding LapCommand}" />
+                        <Button Content="Stop" Command="{Binding StopCommand}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="subtitle" Text="Laps" />
+                    <ItemsControl ItemsSource="{Binding Laps}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:LapRow">
+                                <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,2">
+                                    <TextBlock Text="{Binding Number}" />
+                                    <TextBlock Grid.Column="1" Margin="12,0" FontFamily="Consolas,Menlo,monospace" Text="{Binding Time}" />
+                                    <TextBlock Grid.Column="2" Opacity="0.7" Text="{Binding Status}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</ContentPage>

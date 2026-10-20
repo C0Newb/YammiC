@@ -1,0 +1,44 @@
+<Project>
+	<PropertyGroup>
+		<Nullable>enable</Nullable>
+		<LangVersion>latest</LangVersion>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<!-- .NET Version -->
+		<YmcDotNetVersion>net10.0</YmcDotNetVersion>
+
+		<!-- Targets (plural = multiple, singular = ONE) -->
+		<YmcDesktopTargetFrameworks>$(YmcDotNetVersion)</YmcDesktopTargetFrameworks>
+		<YmcBrowserTargetFramework>$(YmcDotNetVersion)-browser</YmcBrowserTargetFramework>
+		<YmcWindowsTargetFramework>$(YmcDotNetVersion)-windows10.0.19041.0</YmcWindowsTargetFramework>
+		<YmcMacosTargetFramework>$(YmcDotNetVersion)-macos</YmcMacosTargetFramework>
+		<YmcAndroidTargetFramework>$(YmcDotNetVersion)-android</YmcAndroidTargetFramework>
+		<YmcIosTargetFramework>$(YmcDotNetVersion)-ios</YmcIosTargetFramework>
+
+		<!-- Core Targets (Ymc Libraries) -->
+		<YmcTargetFrameworks>$(YmcDotNetVersion);$(YmcAndroidTargetFramework);$(YmcIosTargetFramework);$(YmcBrowserTargetFramework)</YmcTargetFrameworks>
+		<YmcTestsTargetFrameworks>$(YmcDotNetVersion);$(YmcAndroidTargetFramework)</YmcTestsTargetFrameworks>
+		
+		<!-- CPU Architecture -->
+		<YmcTargetPlatforms>AnyCPU;ARM64</YmcTargetPlatforms>
+	</PropertyGroup>
+
+	<!-- Build platform -->
+	<PropertyGroup Condition="$([MSBuild]::IsOSPlatform('windows'))">
+		<YmcTargetFrameworks>$(YmcTargetFrameworks);$(YmcWindowsTargetFramework)</YmcTargetFrameworks>
+		<YmcDesktopTargetFrameworks>$(YmcDesktopTargetFrameworks);$(YmcWindowsTargetFramework)</YmcDesktopTargetFrameworks>
+	</PropertyGroup>
+	<PropertyGroup Condition="$([MSBuild]::IsOSPlatform('macos'))">
+		<YmcTargetFrameworks>$(YmcTargetFrameworks);$(YmcMacosTargetFramework)</YmcTargetFrameworks>
+		<YmcDesktopTargetFrameworks>$(YmcDesktopTargetFrameworks);$(YmcMacosTargetFramework)</YmcDesktopTargetFrameworks>
+	</PropertyGroup>
+
+	<!--
+		NOTE: Anything conditioned on $(TargetFramework) (or $(Configuration)) lives in
+		Directory.Build.targets, not here. Directory.Build.props is imported before a
+		single-TargetFramework project's own <TargetFramework> element runs, so $(TargetFramework)
+		is still empty at this point and such conditions would silently evaluate to false.
+		Directory.Build.targets is imported after the project body, once $(TargetFramework) is set.
+	-->
+</Project>

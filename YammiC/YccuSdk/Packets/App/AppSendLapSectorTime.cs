@@ -7,19 +7,29 @@ namespace CNCO.YccuSdk.Packets.App;
 /// </summary>
 public class AppSendLapSectorTime : AppOutgoingRequest
 {
-    /// <summary>Lap number meaning "none".</summary>
+    /// <summary>
+    /// Lap number meaning "none".
+    /// </summary>
     public const int NoLap = 255;
 
-    /// <summary>Lap or reference time meaning "none".</summary>
+    /// <summary>
+    /// Lap or reference time meaning "none".
+    /// </summary>
     public const int NoTime = 1048575;
 
-    /// <summary>Gap value meaning "this sector was not measured".</summary>
+    /// <summary>
+    /// Gap value meaning "this sector was not measured".
+    /// </summary>
     public const int GapNotMeasured = 12287;
 
-    /// <summary>Gap value meaning "invalid".</summary>
+    /// <summary>
+    /// Gap value meaning "invalid".
+    /// </summary>
     public const int GapInvalid = 16383;
 
-    /// <summary>The gap range is sent shifted up by this much so it stays positive.</summary>
+    /// <summary>
+    /// The gap range is sent shifted up by this much so it stays positive.
+    /// </summary>
     public const int GapOffset = 5999;
 
     private readonly int _lapNo;
@@ -65,7 +75,9 @@ public class AppSendLapSectorTime : AppOutgoingRequest
         return Concat(Preamble, bytes.ToArray());
     }
 
-    /// <summary>Checks the ranges the bike accepts; returns a message, or null when everything is in range.</summary>
+    /// <summary>
+    /// Checks the ranges the bike accepts; returns a message, or null when everything is in range.
+    /// </summary>
     public static string? Validate(int lapNo, int lapTimeCs, int referenceTimeCs, int sectorNo, int[] gapsCs)
     {
         if (lapNo != NoLap && lapNo is < 0 or > 99) return $"Lap number {lapNo} out of range (0-99)";

@@ -25,7 +25,9 @@ public sealed class PreviewRenderer
 
     public string? LastError => _renderer.LastError;
 
-    /// <summary>Draws the page; null if it can't be drawn (<see cref="LastError"/> says why) or a newer request replaced this one.</summary>
+    /// <summary>
+    /// Draws the page; null if it can't be drawn (<see cref="LastError"/> says why) or a newer request replaced this one.
+    /// </summary>
     public Task<Bitmap?> RenderAsync(ScreenPage page, ScreenSnapshot snapshot)
     {
         var result = new TaskCompletionSource<Bitmap?>();
@@ -40,8 +42,9 @@ public sealed class PreviewRenderer
         _running = true;
         try
         {
-            while (_waiting is { } next)
+            while (_waiting != null)
             {
+                var next = _waiting.Value;
                 _waiting = null;
                 var (width, height) = ScreenSizes.DesignSize(_target);
                 using var bitmap = await _renderer.RenderAsync(_target, next.Page, next.Snapshot, width, height);

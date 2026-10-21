@@ -23,6 +23,9 @@ public class NavigationEngine
     // per Pillion's PROTOCOL.md.
     private const int MaxRoadNameBytes = 64;
 
+    // The last payload seen for each kind of frame we don't act on (receive loop only), so repeats aren't logged.
+    private readonly Dictionary<int, string> _lastUnhandled = new();
+
     // Per Pillion's MirrorEngine: imageType 3 = "NAVIGATION_EXPANDED". The CCU keys its
     // rendering mode off this byte - sending 0 here is a different (and wrong) image type.
     private const byte ImageTypeNavigation = 3;
@@ -87,7 +90,9 @@ public class NavigationEngine
         _onContentRequest = onContentRequest ?? ((_, _) => { });
     }
 
-    /// <summary>Starts the sender loop and the frame-receive loop, both on the thread pool (blocking I/O).</summary>
+    /// <summary>
+    /// Starts the sender loop and the frame-receive loop, both on the thread pool (blocking I/O).
+    /// </summary>
     public void Start()
     {
         _log.Debug("starting sender + receive loops");
@@ -97,7 +102,9 @@ public class NavigationEngine
         _ = Task.Run(() => SenderLoopAsync(token));
     }
 
-    /// <summary>Cancels both loops and closes the frame queue. Does not close the underlying channel.</summary>
+    /// <summary>
+    /// Cancels both loops and closes the frame queue. Does not close the underlying channel.
+    /// </summary>
     public void Stop()
     {
         _log.Debug("stopping sender + receive loops");
@@ -105,14 +112,18 @@ public class NavigationEngine
         _frameQueue.Writer.TryComplete();
     }
 
-    /// <summary>The cap on pictures sent per second. Can be changed while running; the sender loop picks it up on the next picture.</summary>
+    /// <summary>
+    /// The cap on pictures sent per second. Can be changed while running; the sender loop picks it up on the next picture.
+    /// </summary>
     public int MaxFps
     {
         get => Volatile.Read(ref _maxFps);
         set => Volatile.Write(ref _maxFps, Math.Max(value, 1));
     }
 
-    /// <summary>Enqueues raw image bytes (e.g. JPEG) as the next frame to send.</summary>
+    /// <summary>
+    /// Enqueues raw image bytes (e.g. JPEG) as the next frame to send.
+    /// </summary>
     public bool EnqueueImage(byte[] image) => _frameQueue.Writer.TryWrite(BuildNextPayload(image));
 
     /// <summary>
@@ -145,7 +156,34 @@ public class NavigationEngine
         });
     }
 
-    /// <summary>Sends MAP_ZOOM_LEVEL_UPDATE (service 14, see <see cref="NaviLiteZoom"/>). Fire-and-forget.</summary>
+
+    /// <summary>
+    /// Sends one turn-guidance message (service 4 or 19, see <see cref="NaviLiteTurn"/>). Fire-and-forget like the other status updates.
+    /// </summary>
+    public void SendTurn(int serviceType, byte[] payload, string what, int payloadDataType = NaviLiteConstants.PdtPointer)
+    {
+        if (serviceType == NaviLiteServiceType.NavStatus) _navStatus = payload;
+        var frame = NaviLiteCodec.Build(
+            frameType: NaviLiteConstants.FrameTypePhone,
+            serviceType: serviceType,
+            payloadDataType: payloadDataType,
+            payload: payload);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await WriteAsync(frame).ConfigureAwait(false);
+                _log.Debug($"sent TURN update (service {serviceType}): {what} {ToHexPreview(payload)}");
+            }
+            catch (Exception t)
+            {
+                _log.Debug($"sendTurn: failed to send: {t.Message}");
+            }
+        });
+    }
+    /// <summary>
+    /// Sends MAP_ZOOM_LEVEL_UPDATE (service 14, see <see cref="NaviLiteZoom"/>). Fire-and-forget.
+    /// </summary>
     public void SendZoomLevel(byte[] payload)
     {
         var frame = NaviLiteCodec.Build(
@@ -167,7 +205,9 @@ public class NavigationEngine
         });
     }
 
-    /// <summary>Sends DAY_NIGHT_MODE_UPDATE (service 31): `[mode][0x00]`, same shape as the setup burst's. Fire-and-forget.</summary>
+    /// <summary>
+    /// Sends DAY_NIGHT_MODE_UPDATE (service 31): `[mode][0x00]`, same shape as the setup burst's. Fire-and-forget.
+    /// </summary>
     public void SendDayNight(byte mode)
     {
         var frame = NaviLiteCodec.Build(
@@ -387,9 +427,13 @@ public class NavigationEngine
                         break;
 
                     default:
-                        _log.Debug(
-                            $"received unhandled frame: serviceType={frame.ServiceType} " +
-                            $"payload={ToHexPreview(frame.Payload)}");
+                        // The bike repeats some of these every second; log a kind of frame when it first shows up and
+                        // whenever its payload changes (that is how a new bike signal, such as a day/night switch, is spotted).
+                        var payloadText = ToHexPreview(frame.Payload);
+                        if (_lastUnhandled.TryGetValue(frame.ServiceType, out var previous) && previous == payloadText) break;
+                        _lastUnhandled[frame.ServiceType] = payloadText;
+                        _log.Debug($"received unhandled frame: serviceType={frame.ServiceType} payload={payloadText}" +
+                                   (previous == null ? "" : $" (was {previous})"));
                         break;
                 }
             }
@@ -405,7 +449,11 @@ public class NavigationEngine
         }
     }
 
-    /// <summary>Re-sends the status frames (see <see cref="NavigationHandshake.StatusRefresh"/>) when the rider opens the navigation screen.</summary>
+    /// <summary>
+    /// Re-sends the status frames (see <see cref="NavigationHandshake.StatusRefresh"/>) when the rider opens the navigation screen.
+    /// </summary>
+    private volatile byte[]? _navStatus;
+
     private void SendStatusRefresh()
     {
         var frames = _statusRefresh();
@@ -414,8 +462,10 @@ public class NavigationEngine
         {
             try
             {
-                foreach (var (serviceType, payloadDataType, payload) in frames)
+                foreach (var (serviceType, payloadDataType, original) in frames)
                 {
+                    // The refresh must not undo a navigation status the turn display set (it would say idle again).
+                    var payload = serviceType == NaviLiteServiceType.NavStatus && _navStatus != null ? _navStatus : original;
                     await WriteAsync(NaviLiteCodec.Build(NaviLiteConstants.FrameTypePhone, serviceType, payloadDataType, payload)).ConfigureAwait(false);
                     _log.Debug($"status refresh: sent serviceType={serviceType} payload={ToHexPreview(payload)}");
                 }
@@ -484,7 +534,9 @@ public class NavigationEngine
         _onPoiSelected(new NavPoiSelection(list, itemIndex, routeOption, poi, payload));
     }
 
-    /// <summary>Hex dump capped at 32 bytes so a large/malformed payload can't flood the log.</summary>
+    /// <summary>
+    /// Hex dump capped at 32 bytes so a large/malformed payload can't flood the log.
+    /// </summary>
     private static string ToHexPreview(byte[] bytes)
     {
         var hex = string.Join(" ", bytes.Take(32).Select(b => b.ToString("x2")));

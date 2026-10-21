@@ -1,0 +1,32 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:YammiC.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="400"
+             x:DataType="vm:PitBoardImageViewModel"
+             x:Class="YammiC.Views.PitBoardImageCard">
+    <Design.DataContext>
+        <vm:PitBoardImageViewModel />
+    </Design.DataContext>
+
+    <Border Classes="card">
+        <StackPanel Spacing="10">
+            <StackPanel Spacing="2">
+                <TextBlock Classes="subtitle" Text="Pit board image" />
+                <TextBlock Classes="caption" TextWrapping="Wrap" Text="Send a picture to the bike's Virtual Pit Board once." />
+            </StackPanel>
+            <Border CornerRadius="8" ClipToBounds="True" Background="#14000000" HorizontalAlignment="Left">
+                <Image Source="{Binding Preview}" MaxHeight="160" Stretch="Uniform" />
+            </Border>
+            <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding ImageName}" />
+            <WrapPanel>
+                <Button Classes="chip accent" Content="Send image" IsEnabled="{Binding !IsSending}" Command="{Binding SendCommand}" />
+                <Button Classes="chip" Content="Choose image..." Click="Choose_Click" />
+                <Button Classes="chip" Content="Use sandwich" Command="{Binding UseDefaultImageCommand}" />
+                <Button Classes="chip" Content="Clear board" IsEnabled="{Binding !IsSending}" Command="{Binding ClearCommand}" />
+            </WrapPanel>
+            <TextBlock TextWrapping="Wrap" IsVisible="{Binding Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Text="{Binding Status}" />
+        </StackPanel>
+    </Border>
+</UserControl>

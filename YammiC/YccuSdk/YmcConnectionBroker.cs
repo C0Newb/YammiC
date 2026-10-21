@@ -63,7 +63,9 @@ public class YmcConnectionBroker
         _virtualPitBoardController = new YmcVirtualPitBoardController(logger);
     }
 
-    /// <summary>Latest state snapshot.</summary>
+    /// <summary>
+    /// Latest state snapshot.
+    /// </summary>
     public BikeDebugState State
     {
         get
@@ -80,7 +82,9 @@ public class YmcConnectionBroker
 
     public YmcMessageHandler MessageHandler { get; }
 
-    /// <summary>Every GATT notification/indication from the bike, tagged with its characteristic.</summary>
+    /// <summary>
+    /// Every GATT notification/indication from the bike, tagged with its characteristic.
+    /// </summary>
     public YmcNotificationBus Notifications => _bluetooth.Notifications;
 
     public CcuGetDeviceLanguageRequestHandler LanguageHandler => _languageHandler;
@@ -89,10 +93,14 @@ public class YmcConnectionBroker
 
     public bool IsBikeConnected => _messageBroker != null;
 
-    /// <summary>True while a connect attempt is in flight.</summary>
+    /// <summary>
+    /// True while a connect attempt is in flight.
+    /// </summary>
     public bool IsConnecting => _active;
 
-    /// <summary>The bike's Bluetooth address from the last time it was found, or null if never.</summary>
+    /// <summary>
+    /// The bike's Bluetooth address from the last time it was found, or null if never.
+    /// </summary>
     public string? BikeAddress => _sessionStore.BikeAddress;
 
     private sealed record PeriodicJob(TimeSpan Interval, Func<YmcMessageBroker, Task> Block);
@@ -106,7 +114,9 @@ public class YmcConnectionBroker
         _periodicJobs.Add(new PeriodicJob(interval, block));
     }
 
-    /// <summary>Registers <paramref name="block"/> to run once, immediately after every successful connect.</summary>
+    /// <summary>
+    /// Registers <paramref name="block"/> to run once, immediately after every successful connect.
+    /// </summary>
     public void AddOnConnectJob(Func<YmcMessageBroker, Task> block)
     {
         _onConnectJobs.Add(block);
@@ -220,7 +230,9 @@ public class YmcConnectionBroker
         return await _virtualPitBoardController.SendMessageAsync(broker.PacketHandler, broker.ConnectionContext, image).ConfigureAwait(false);
     }
 
-    /// <summary>Clears the Virtual Pit Board display. Returns false if not connected or the CCU rejected it.</summary>
+    /// <summary>
+    /// Clears the Virtual Pit Board display. Returns false if not connected or the CCU rejected it.
+    /// </summary>
     public async Task<bool> ClearVirtualPitBoardAsync()
     {
         var broker = _messageBroker;
@@ -245,7 +257,7 @@ public class YmcConnectionBroker
 
     public void ConnectAndSend()
     {
-        if (_scanTask is { IsCompleted: false }) return;
+        if (_scanTask != null && !_scanTask.IsCompleted) return;
 
         _bluetooth.AssertConnectPermission();
 

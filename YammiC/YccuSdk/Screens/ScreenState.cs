@@ -3,7 +3,9 @@ using CNCO.YccuSdk.Models;
 
 namespace CNCO.YccuSdk.Screens;
 
-/// <summary>A dictionary a page can bind to (<c>{Binding Flags[menu]}</c>): missing keys read as the default value.</summary>
+/// <summary>
+/// A dictionary a page can bind to (<c>{Binding Flags[menu]}</c>): missing keys read as the default value.
+/// </summary>
 public sealed class StateBag<T> : INotifyPropertyChanged
 {
     private IReadOnlyDictionary<string, T> _values = new Dictionary<string, T>();
@@ -40,7 +42,9 @@ public sealed class ScreenState : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(string.Empty));
     }
 
-    /// <summary>Expands <c>{variables}</c> in <paramref name="template"/> (see <see cref="ScreenVariables"/>).</summary>
+    /// <summary>
+    /// Expands <c>{variables}</c> in <paramref name="template"/> (see <see cref="ScreenVariables"/>).
+    /// </summary>
     public string Resolve(string? template) => ScreenVariables.Resolve(template, _snapshot.Context);
 
     private ScreenContext C => _snapshot.Context;
@@ -58,7 +62,15 @@ public sealed class ScreenState : INotifyPropertyChanged
     public string PlayIcon => V("playicon");
     public string Elapsed => V("elapsed");
     public string Duration => V("duration");
-    public double Progress => Media is { DurationSeconds: > 0 } m ? Math.Clamp((double)m.ElapsedSeconds / m.DurationSeconds, 0, 1) : 0;
+    public double Progress
+    {
+        get
+        {
+            var media = Media;
+            if (media == null || media.DurationSeconds <= 0) return 0;
+            return Math.Clamp((double)media.ElapsedSeconds / media.DurationSeconds, 0, 1);
+        }
+    }
 
     public bool Night => C.Night;
     public bool Day => !C.Night;
@@ -85,8 +97,10 @@ public sealed class ScreenState : INotifyPropertyChanged
     public string FrontSpeed => V("frontspeed");
     public string RearSpeed => V("rearspeed");
 
-    /// <summary>The current track's picture (encoded image bytes), or null.</summary>
+    /// <summary>
+    /// The current track's picture (encoded image bytes), or null.
+    /// </summary>
     public byte[]? AlbumArt => C.AlbumArt;
 
-    public bool HasAlbumArt => C.AlbumArt is { Length: > 0 };
+    public bool HasAlbumArt => C.AlbumArt != null && C.AlbumArt.Length > 0;
 }

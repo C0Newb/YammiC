@@ -2,7 +2,9 @@ using SkiaSharp;
 
 namespace CNCO.YccuSdk.Reels;
 
-/// <summary>A video in the reels folder. <see cref="Uri"/> is whatever the platform needs to open it.</summary>
+/// <summary>
+/// A video in the reels folder. <see cref="Uri"/> is whatever the platform needs to open it.
+/// </summary>
 public sealed record ReelItem(string Uri, string Name);
 
 /// <summary>
@@ -12,10 +14,14 @@ public sealed record ReelItem(string Uri, string Name);
 /// </summary>
 public interface IReelsPlatform
 {
-    /// <summary>Called when the user picks a folder, so the platform can keep access to it (e.g. a persistable permission).</summary>
+    /// <summary>
+    /// Called when the user picks a folder, so the platform can keep access to it (e.g. a persistable permission).
+    /// </summary>
     void RememberFolder(string folderUri);
 
-    /// <summary>The videos directly inside the folder, sorted by name. Empty if the folder can't be read.</summary>
+    /// <summary>
+    /// The videos directly inside the folder, sorted by name. Empty if the folder can't be read.
+    /// </summary>
     Task<IReadOnlyList<ReelItem>> ListVideosAsync(string folderUri);
 
     /// <summary>
@@ -25,6 +31,8 @@ public interface IReelsPlatform
     /// </summary>
     void Play(ReelItem item, int maxFps, Action<SKBitmap> onFrame, Action<string> onError);
 
-    /// <summary>Stops playback, silences the sound and releases the player. Safe to call when nothing is playing.</summary>
+    /// <summary>
+    /// Stops playback, silences the sound and releases the player. Safe to call when nothing is playing.
+    /// </summary>
     void Stop();
 }

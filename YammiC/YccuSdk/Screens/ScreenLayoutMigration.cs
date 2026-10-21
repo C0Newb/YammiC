@@ -3,7 +3,9 @@ using System.Xml.Linq;
 
 namespace CNCO.YccuSdk.Screens;
 
-/// <summary>Turns an old <see cref="ScreenLayout"/> (the Skia screen builder's format) into a one-page <see cref="ScreenDocument"/>.</summary>
+/// <summary>
+/// Turns an old <see cref="ScreenLayout"/> (the Skia screen builder's format) into a one-page <see cref="ScreenDocument"/>.
+/// </summary>
 public static class ScreenLayoutMigration
 {
     private static readonly XNamespace W = ScreenDocument.WidgetNs;

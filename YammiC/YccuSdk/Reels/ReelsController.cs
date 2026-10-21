@@ -40,7 +40,9 @@ public sealed class ReelsController
         }
     }
 
-    /// <summary>The video playing now, or null.</summary>
+    /// <summary>
+    /// The video playing now, or null.
+    /// </summary>
     public string? CurrentName
     {
         get
@@ -49,7 +51,9 @@ public sealed class ReelsController
         }
     }
 
-    /// <summary>Lists the folder and starts playing from the first video.</summary>
+    /// <summary>
+    /// Lists the folder and starts playing from the first video.
+    /// </summary>
     public async void Start()
     {
         int generation;
@@ -92,7 +96,9 @@ public sealed class ReelsController
         }
     }
 
-    /// <summary>Stops playback and the sound.</summary>
+    /// <summary>
+    /// Stops playback and the sound.
+    /// </summary>
     public void Stop()
     {
         lock (_gate)
@@ -103,7 +109,19 @@ public sealed class ReelsController
         _platform.Stop();
     }
 
-    /// <summary>The refresh profile changed: start the current video again so it runs at the new rate (it begins from the start).</summary>
+    /// <summary>
+    /// Silences the video while the bike isn't showing the navigation screen. <see cref="Resume"/> starts the current one again.
+    /// </summary>
+    public void Suspend() => _platform.Stop();
+
+    /// <summary>
+    /// Plays the current video again after <see cref="Suspend"/> (from its start).
+    /// </summary>
+    public void Resume() => PlayCurrent();
+
+    /// <summary>
+    /// The refresh profile changed: start the current video again so it runs at the new rate (it begins from the start).
+    /// </summary>
     public void RefreshProfile()
     {
         lock (_gate)
@@ -113,10 +131,14 @@ public sealed class ReelsController
         PlayCurrent();
     }
 
-    /// <summary>Scrolls to the next video (wrapping round).</summary>
+    /// <summary>
+    /// Scrolls to the next video (wrapping round).
+    /// </summary>
     public void Next() => Step(1);
 
-    /// <summary>Scrolls to the previous video (wrapping round).</summary>
+    /// <summary>
+    /// Scrolls to the previous video (wrapping round).
+    /// </summary>
     public void Previous() => Step(-1);
 
     private void Step(int direction)
@@ -165,7 +187,9 @@ public sealed class ReelsController
             });
     }
 
-    /// <summary>Puts a line of text on the navigation screen (nothing is playing to show).</summary>
+    /// <summary>
+    /// Puts a line of text on the navigation screen (nothing is playing to show).
+    /// </summary>
     private void ShowMessage(string text)
     {
         var layout = new ScreenLayout

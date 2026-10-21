@@ -4,15 +4,21 @@ namespace CNCO.YccuSdk.Navigation.Protocol;
 
 internal static class NaviLiteConstants
 {
-    /// <summary>NaviLite frameType for messages the phone sends to the bike.</summary>
+    /// <summary>
+    /// NaviLite frameType for messages the phone sends to the bike.
+    /// </summary>
     public const int FrameTypePhone = 6;
 
-    /// <summary>NaviLite payloadDataType values.</summary>
+    /// <summary>
+    /// NaviLite payloadDataType values.
+    /// </summary>
     public const int PdtValue = 0;
     public const int PdtPointer = 1;
 }
 
-/// <summary>NaviLite service-type identifiers used by the handshake and image channel.</summary>
+/// <summary>
+/// NaviLite service-type identifiers used by the handshake and image channel.
+/// </summary>
 internal static class NaviLiteServiceType
 {
     // handshake
@@ -56,7 +62,9 @@ internal static class NaviLiteServiceType
     public const int GasPoiListDataUpdate = 99;
 }
 
-/// <summary>APP_START_CONTENT_UPDATE_REQUEST/APP_STOP_CONTENT_UPDATE_REQUEST contentType values.</summary>
+/// <summary>
+/// APP_START_CONTENT_UPDATE_REQUEST/APP_STOP_CONTENT_UPDATE_REQUEST contentType values.
+/// </summary>
 internal static class NaviLiteContentType
 {
     public const int NaviImage = 1;
@@ -64,7 +72,9 @@ internal static class NaviLiteContentType
     public const int StationsList = 4;
 }
 
-/// <summary>FAV/GAS_POI_LIST_DATA_UPDATE's direction byte - relative to the vehicle, not compass.</summary>
+/// <summary>
+/// FAV/GAS_POI_LIST_DATA_UPDATE's direction byte - relative to the vehicle, not compass.
+/// </summary>
 internal static class NaviLitePoiDirectionType
 {
     public const byte Undefined = 0;

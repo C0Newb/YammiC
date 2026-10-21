@@ -15,7 +15,9 @@ public static class NaviLiteCodec
     public const int CrcSize = 4;
     public static readonly byte[] Magic = { 0x6e, 0x41, 0x6c, 0x40 }; // "nAl@"
 
-    /// <summary>Build a full on-wire frame. CRC covers header+payload, not itself.</summary>
+    /// <summary>
+    /// Build a full on-wire frame. CRC covers header+payload, not itself.
+    /// </summary>
     public static byte[] Build(int frameType, int serviceType, int payloadDataType, byte[] payload)
     {
         var size = payload.Length;
@@ -40,7 +42,9 @@ public static class NaviLiteCodec
         return output;
     }
 
-    /// <summary>The total wire length of a frame whose header begins at <paramref name="data"/>[<paramref name="off"/>], or -1 if incomplete.</summary>
+    /// <summary>
+    /// The total wire length of a frame whose header begins at <paramref name="data"/>[<paramref name="off"/>], or -1 if incomplete.
+    /// </summary>
     public static int FrameLengthAt(byte[] data, int off)
     {
         if (off + HeaderSize + CrcSize > data.Length) return -1;

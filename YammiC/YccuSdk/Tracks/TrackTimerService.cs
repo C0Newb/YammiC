@@ -48,24 +48,31 @@ public sealed class TrackTimerService
 
     public TrackLibrary Library { get; }
 
-    /// <summary>The track and session files (sessions are read from here for the session list and exports).</summary>
+    /// <summary>
+    /// The track and session files (sessions are read from here for the session list and exports).
+    /// </summary>
     public ITrackFileStore Files { get; }
 
     public TimerController Timer { get; }
 
     public ILocationSource Location => _location;
 
-    /// <summary>The most recent GPS fix received while a session is on.</summary>
+    /// <summary>
+    /// The most recent GPS fix received while a session is on.
+    /// </summary>
     public GpsFix? LastFix { get; private set; }
 
     public event Action? Changed;
 
-    /// <summary>Loads settings, starts listening for the bike's ready flag and resumes a session that was on when the app stopped.</summary>
+    /// <summary>
+    /// Loads settings, starts listening for the bike's ready flag and resumes a session that was on when the app stopped.
+    /// </summary>
     public void Start()
     {
         if (_started) return;
         _started = true;
-        if (_storage.GetString(SelectedKey) is { Length: > 0 } selected) Timer.SelectTrack(selected);
+        var selected = _storage.GetString(SelectedKey);
+        if (!string.IsNullOrEmpty(selected)) Timer.SelectTrack(selected);
         ApplyOptions();
         ApplyRequiredIds();
         _bike.CanUpdated += OnCanUpdated;
@@ -75,12 +82,16 @@ public sealed class TrackTimerService
         if (Timer.IsLocked) _location.Start(GpsHz, OnFix);
     }
 
-    /// <summary>Tells the pages that tracks or sessions changed (the library does not raise it itself).</summary>
+    /// <summary>
+    /// Tells the pages that tracks or sessions changed (the library does not raise it itself).
+    /// </summary>
     public void NotifyChanged() => Changed?.Invoke();
 
     // -- Settings ---------------------------------------------------------
 
-    /// <summary>Whether the Track Timer listens for the bike's ready flag (adds one CAN ID to the request).</summary>
+    /// <summary>
+    /// Whether the Track Timer listens for the bike's ready flag (adds one CAN ID to the request).
+    /// </summary>
     public bool Enabled
     {
         get => _storage.GetString(EnabledKey) == "1";
@@ -93,7 +104,9 @@ public sealed class TrackTimerService
         }
     }
 
-    /// <summary>GPS fixes per second. Only rates the phone delivers are accepted once they have been tested.</summary>
+    /// <summary>
+    /// GPS fixes per second. Only rates the phone delivers are accepted once they have been tested.
+    /// </summary>
     public double GpsHz
     {
         get => double.TryParse(_storage.GetString(HzKey), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var hz) && AvailableRates.Contains(hz) ? hz : AvailableRates.Contains(5) ? 5 : AvailableRates[0];
@@ -106,14 +119,30 @@ public sealed class TrackTimerService
         }
     }
 
-    /// <summary>The rates found by <see cref="TestGpsRatesAsync"/>, or null if the test has not been run.</summary>
-    public IReadOnlyList<double>? TestedRates =>
-        _storage.GetString(RatesKey) is { Length: > 0 } text
-            ? text.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => double.Parse(s, System.Globalization.CultureInfo.InvariantCulture)).ToList()
-            : null;
+    /// <summary>
+    /// The rates found by <see cref="TestGpsRatesAsync"/>, or null if the test has not been run.
+    /// </summary>
+    public IReadOnlyList<double>? TestedRates
+    {
+        get
+        {
+            var text = _storage.GetString(RatesKey);
+            if (string.IsNullOrEmpty(text)) return null;
+            return text.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => double.Parse(s, System.Globalization.CultureInfo.InvariantCulture)).ToList();
+        }
+    }
 
-    /// <summary>What the rate setting offers: the tested rates, or just 1 Hz until the test has run.</summary>
-    public IReadOnlyList<double> AvailableRates => TestedRates is { Count: > 0 } tested ? tested : new[] { 1.0 };
+    /// <summary>
+    /// What the rate setting offers: the tested rates, or just 1 Hz until the test has run.
+    /// </summary>
+    public IReadOnlyList<double> AvailableRates
+    {
+        get
+        {
+            var tested = TestedRates;
+            return tested != null && tested.Count > 0 ? tested : new[] { 1.0 };
+        }
+    }
 
     public bool AutoSelectTrack
     {
@@ -149,12 +178,17 @@ public sealed class TrackTimerService
         }
     }
 
-    /// <summary>CAN signals saved with each GPS sample (a subset of <see cref="CanSignals.KnownIds"/>; none by default).</summary>
+    /// <summary>
+    /// CAN signals saved with each GPS sample (a subset of <see cref="CanSignals.KnownIds"/>; none by default).
+    /// </summary>
     public IReadOnlyList<int> RecordedCanIds
     {
-        get => _storage.GetString(RecordIdsKey) is { Length: > 0 } text
-            ? text.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => int.TryParse(s, out var id) ? id : -1).Where(CanSignals.KnownIds.Contains).ToList()
-            : Array.Empty<int>();
+        get
+        {
+            var text = _storage.GetString(RecordIdsKey);
+            if (string.IsNullOrEmpty(text)) return Array.Empty<int>();
+            return text.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => int.TryParse(s, out var id) ? id : -1).Where(CanSignals.KnownIds.Contains).ToList();
+        }
         set
         {
             if (Timer.IsLocked) return;
@@ -168,7 +202,9 @@ public sealed class TrackTimerService
 
     // -- Actions ----------------------------------------------------------
 
-    /// <summary>Chooses the track for the next session (ignored while a session is on). Null clears the choice.</summary>
+    /// <summary>
+    /// Chooses the track for the next session (ignored while a session is on). Null clears the choice.
+    /// </summary>
     public bool SelectTrack(string? id)
     {
         if (!Timer.SelectTrack(id)) return false;
@@ -177,12 +213,16 @@ public sealed class TrackTimerService
         return true;
     }
 
-    /// <summary>Starts a session from the app. Returns why not, or null.</summary>
+    /// <summary>
+    /// Starts a session from the app. Returns why not, or null.
+    /// </summary>
     public string? Arm() => TryArm(ArmSource.Rider);
 
     public void Disarm() => Timer.Disarm();
 
-    /// <summary>Times each GPS rate for a few seconds and remembers which ones the phone delivers. Needs location permission and a view of the sky.</summary>
+    /// <summary>
+    /// Times each GPS rate for a few seconds and remembers which ones the phone delivers. Needs location permission and a view of the sky.
+    /// </summary>
     public async Task<IReadOnlyList<double>> TestGpsRatesAsync(CancellationToken cancellation = default)
     {
         if (Timer.IsLocked || !_location.HasPermission) return AvailableRates;
@@ -249,7 +289,7 @@ public sealed class TrackTimerService
         var sample = new Dictionary<string, double>();
         void Add(string name, double? value)
         {
-            if (value is { } x) sample[name] = x;
+            if (value != null) sample[name] = value.Value;
         }
         Add("rpm", v.Rpm);
         Add("gear", v.Gear);
@@ -291,9 +331,12 @@ public sealed class TrackTimerService
     {
         if (bit == ReadyBitState.Ready && Timer.State == TimerState.Idle)
         {
-            if (AutoSelectTrack && _location.LastKnown is { } here &&
-                TrackSelector.Select(Library.List(), here.Point, AutoSelectMetres) is { } nearest)
-                SelectTrack(nearest.Id);
+            var here = _location.LastKnown;
+            if (AutoSelectTrack && here != null)
+            {
+                var nearest = TrackSelector.Select(Library.List(), here.Point, AutoSelectMetres);
+                if (nearest != null) SelectTrack(nearest.Id);
+            }
 
             var problem = TryArm(ArmSource.Bike);
             if (problem != null) _log.Info($"Bike said ready but the session did not start: {problem}");

@@ -48,13 +48,19 @@ public class NavigationSdk
     // the idle resend), which hold back while this isn't open.
     private readonly NavImageGate _imageGate = new();
 
-    /// <summary>Whether the bike has asked for the navigation picture (and not stopped asking). Producers can skip their work while false.</summary>
+    /// <summary>
+    /// Whether the bike has asked for the navigation picture (and not stopped asking). Producers can skip their work while false.
+    /// </summary>
     public bool ImagesWanted => _imageGate.ImagesWanted;
 
-    /// <summary>What the bike has said about the navigation picture on this connection (<see cref="NavImageDemand.Unknown"/> until it asks).</summary>
+    /// <summary>
+    /// What the bike has said about the navigation picture on this connection (<see cref="NavImageDemand.Unknown"/> until it asks).
+    /// </summary>
     public NavImageDemand ImageDemand => _imageGate.Demand;
 
-    /// <summary>Raised when <see cref="ImageDemand"/> changes (e.g. so a screen can draw a fresh picture when the bike starts asking).</summary>
+    /// <summary>
+    /// Raised when <see cref="ImageDemand"/> changes (e.g. so a screen can draw a fresh picture when the bike starts asking).
+    /// </summary>
     public event Action<NavImageDemand>? ImageDemandChanged;
 
     /// <param name="controller">Connection broker, read for <see cref="YmcConnectionBroker.IsBikeConnected"/>.</param>
@@ -98,7 +104,9 @@ public class NavigationSdk
         }
     }
 
-    /// <summary>Raised every time <see cref="State"/> changes (on whatever thread made the change).</summary>
+    /// <summary>
+    /// Raised every time <see cref="State"/> changes (on whatever thread made the change).
+    /// </summary>
     public event Action<NavigationState>? StateChanged;
 
     /// <summary>
@@ -107,16 +115,24 @@ public class NavigationSdk
     /// </summary>
     public Action? OnGoHomeRequested { get; set; }
 
-    /// <summary>Fired when the rider taps "Go to work" on the CCU. See <see cref="OnGoHomeRequested"/>.</summary>
+    /// <summary>
+    /// Fired when the rider taps "Go to work" on the CCU. See <see cref="OnGoHomeRequested"/>.
+    /// </summary>
     public Action? OnGoToWorkRequested { get; set; }
 
-    /// <summary>Fired when the rider taps zoom-in on the CCU's map screen. See <see cref="OnGoHomeRequested"/>.</summary>
+    /// <summary>
+    /// Fired when the rider taps zoom-in on the CCU's map screen. See <see cref="OnGoHomeRequested"/>.
+    /// </summary>
     public Action? OnZoomInRequested { get; set; }
 
-    /// <summary>Fired when the rider taps zoom-out on the CCU's map screen. See <see cref="OnGoHomeRequested"/>.</summary>
+    /// <summary>
+    /// Fired when the rider taps zoom-out on the CCU's map screen. See <see cref="OnGoHomeRequested"/>.
+    /// </summary>
     public Action? OnZoomOutRequested { get; set; }
 
-    /// <summary>Fired when the rider picks an entry on the CCU's Favorites / gas-station screen. See <see cref="OnGoHomeRequested"/>.</summary>
+    /// <summary>
+    /// Fired when the rider picks an entry on the CCU's Favorites / gas-station screen. See <see cref="OnGoHomeRequested"/>.
+    /// </summary>
     public Action<NavPoiSelection>? OnPoiSelected { get; set; }
 
     private readonly object _poiLock = new();
@@ -154,9 +170,12 @@ public class NavigationSdk
         StateChanged?.Invoke(state);
     }
 
-    /// <summary>No-ops if already connecting/active. Errors if the bike isn't BLE-connected yet. Starts async.</summary>
+    /// <summary>
+    /// No-ops if already connecting/active. Errors if the bike isn't BLE-connected yet. Starts async.
+    /// </summary>
     public void Activate()
     {
+        _turnStatusActive = false; // a new link starts with the setup's "idle" status
         if (Interlocked.CompareExchange(ref _activeOrConnecting, 1, 0) != 0)
         {
             _log.Debug("activate: already connecting/active, ignoring");
@@ -245,7 +264,9 @@ public class NavigationSdk
         }
     }
 
-    /// <summary>Stops the send loop and closes the RFCOMM socket. Safe to call when already idle.</summary>
+    /// <summary>
+    /// Stops the send loop and closes the RFCOMM socket. Safe to call when already idle.
+    /// </summary>
     public void Deactivate()
     {
         _jobCancellation?.Cancel();
@@ -306,18 +327,52 @@ public class NavigationSdk
         });
     }
 
-    /// <summary>Sets the road name shown on the CCU's navigation screen. No-ops (logged) if not Active.</summary>
-    public void SetRoadName(string roadName)
+    /// <summary>
+    /// Sets the road name shown on the CCU's navigation screen. Returns false (and logs) if the link is not streaming yet, so the caller can try again.
+    /// </summary>
+    public bool SetRoadName(string roadName)
     {
         var currentEngine = _engine;
         if (currentEngine == null)
         {
             _log.Debug("setRoadName: not active, dropping");
-            return;
+            return false;
         }
         currentEngine.SendRoadName(roadName);
+        return true;
     }
 
+
+    /// <summary>
+    /// Shows a turn-by-turn instruction ("Turn right in 500 ft") on the CCU's guidance display. Sends the message the connected
+    /// dashboard takes (chosen from its part number). No-ops (logged) if not Active.
+    /// </summary>
+    public bool SetTurn(TurnGuidance turn, double remainingMeters = 0, int remainingMinutes = 0)
+    {
+        var currentEngine = _engine;
+        if (currentEngine == null)
+        {
+            _log.Debug("setTurn: not active, dropping");
+            return false;
+        }
+        // The bike only treats guidance as live while the navigation status says a route is running (01 00; the setup says 00 00).
+        var active = turn.Icon != TurnIcon.None;
+        if (active != _turnStatusActive)
+        {
+            _turnStatusActive = active;
+            currentEngine.SendTurn(NaviLiteServiceType.NavStatus, new byte[] { (byte)(active ? 1 : 0), 0 }, active ? "navigation active" : "navigation idle", NaviLiteConstants.PdtValue);
+        }
+        var (next, info) = NaviLiteTurnModels.For(PartNumber);
+        var what = turn.Describe();
+        if (next) currentEngine.SendTurn(NaviLiteTurn.NextTurnService, NaviLiteTurn.NextTurn(turn), what);
+        if (info) currentEngine.SendTurn(NaviLiteTurn.NavigationInfoService, NaviLiteTurn.NavigationInfo(turn, remainingMeters, remainingMinutes), what);
+        return true;
+    }
+
+    private bool _turnStatusActive;
+
+    /// <summary>Takes the instruction off the guidance display.</summary>
+    public bool ClearTurn() => SetTurn(new TurnGuidance(TurnIcon.None, 0));
     /// <summary>
     /// Enqueues already-encoded image bytes (480x240 JPEG) as the next frame and remembers it as the frame the
     /// idle-resend loop keeps re-sending. No-ops the send (logged) if not Active - the image is
@@ -347,7 +402,9 @@ public class NavigationSdk
         PushImage(source, quality);
     }
 
-    /// <summary>Same as <see cref="PushImage(byte[], int)"/> for an already-decoded bitmap.</summary>
+    /// <summary>
+    /// Same as <see cref="PushImage(byte[], int)"/> for an already-decoded bitmap.
+    /// </summary>
     public void PushImage(SKBitmap source, int quality = 90)
     {
         StopAnimatedImage();
@@ -358,7 +415,9 @@ public class NavigationSdk
 
     // -- Display ---------------------------------------------------------------
 
-    /// <summary>The CCU part number from the last handshake (null before one, or if it couldn't be read).</summary>
+    /// <summary>
+    /// The CCU part number from the last handshake (null before one, or if it couldn't be read).
+    /// </summary>
     public string? PartNumber { get; private set; }
 
     private NavDisplaySize _displaySize = NavDisplaySize.Default;
@@ -375,10 +434,14 @@ public class NavigationSdk
 
     private volatile NavDayNightMode _dayNightMode = NavDayNightMode.Day;
 
-    /// <summary>Current day/night mode. Sent to the CCU in the setup burst, and again by <see cref="SetDayNightMode"/>.</summary>
+    /// <summary>
+    /// Current day/night mode. Sent to the CCU in the setup burst, and again by <see cref="SetDayNightMode"/>.
+    /// </summary>
     public NavDayNightMode DayNightMode => _dayNightMode;
 
-    /// <summary>Remembers the mode and, if the link is active, tells the CCU (DAY_NIGHT_MODE_UPDATE).</summary>
+    /// <summary>
+    /// Remembers the mode and, if the link is active, tells the CCU (DAY_NIGHT_MODE_UPDATE).
+    /// </summary>
     public void SetDayNightMode(NavDayNightMode mode)
     {
         if (_dayNightMode == mode) return;
@@ -398,7 +461,9 @@ public class NavigationSdk
     private SKBitmap? _stillSource;
     private int _stillQuality;
 
-    /// <summary>Current map zoom (1 = fitted to the screen). Applied to every image pushed through the decoding overloads and to animations.</summary>
+    /// <summary>
+    /// Current map zoom (1 = fitted to the screen). Applied to every image pushed through the decoding overloads and to animations.
+    /// </summary>
     public float Zoom
     {
         get
@@ -407,16 +472,24 @@ public class NavigationSdk
         }
     }
 
-    /// <summary>Magnifies the displayed image one step (1.5x, up to 6x) and re-sends it. Called for the CCU's zoom-in button.</summary>
+    /// <summary>
+    /// Magnifies the displayed image one step (1.5x, up to 6x) and re-sends it. Called for the CCU's zoom-in button.
+    /// </summary>
     public void ZoomIn() => SetZoom(Zoom * ZoomStep);
 
-    /// <summary>Shrinks the displayed image one step (down to 0.4x) and re-sends it. Called for the CCU's zoom-out button.</summary>
+    /// <summary>
+    /// Shrinks the displayed image one step (down to 0.4x) and re-sends it. Called for the CCU's zoom-out button.
+    /// </summary>
     public void ZoomOut() => SetZoom(Zoom / ZoomStep);
 
-    /// <summary>Returns to the fitted view.</summary>
+    /// <summary>
+    /// Returns to the fitted view.
+    /// </summary>
     public void ResetZoom() => SetZoom(1f);
 
-    /// <summary>Re-sends the current zoom level without changing it. The CCU greys out its zoom buttons until it hears one.</summary>
+    /// <summary>
+    /// Re-sends the current zoom level without changing it. The CCU greys out its zoom buttons until it hears one.
+    /// </summary>
     public void AcknowledgeZoom() => _engine?.SendZoomLevel(NaviLiteZoom.Payload(Zoom));
 
     private void SetZoom(float zoom)
@@ -474,7 +547,9 @@ public class NavigationSdk
         player.Start(encodedAnimation, quality);
     }
 
-    /// <summary>Stops any animation started via <see cref="PushAnimatedImage"/>. No-op if none is playing.</summary>
+    /// <summary>
+    /// Stops any animation started via <see cref="PushAnimatedImage"/>. No-op if none is playing.
+    /// </summary>
     private void StopAnimatedImage()
     {
         _animatedImagePlayer?.Stop();
@@ -489,7 +564,9 @@ public class NavigationSdk
     // frame is pushed or the connection is deactivated.
     private NavigationAnimatedImagePlayer? _animatedImagePlayer;
 
-    /// <summary>Same as <see cref="PushImage(byte[])"/> but doesn't touch the animation player - used by its own frames.</summary>
+    /// <summary>
+    /// Same as <see cref="PushImage(byte[])"/> but doesn't touch the animation player - used by its own frames.
+    /// </summary>
     private long _lastPushTicks;
 
     private void PushFrame(byte[] image)
@@ -508,7 +585,9 @@ public class NavigationSdk
         currentEngine.EnqueueImage(image);
     }
 
-    /// <summary>The gate changed: say so on the bike, or (when it opens) send the last picture again so it isn't left on the notice.</summary>
+    /// <summary>
+    /// The gate changed: say so on the bike, or (when it opens) send the last picture again so it isn't left on the notice.
+    /// </summary>
     private void OnImageDemandChanged(NavImageDemand demand)
     {
         var currentEngine = _engine;

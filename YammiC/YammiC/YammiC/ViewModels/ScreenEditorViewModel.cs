@@ -14,7 +14,9 @@ using YammiC.Services;
 
 namespace YammiC.ViewModels;
 
-/// <summary>What the editor preview pretends is playing.</summary>
+/// <summary>
+/// What the editor preview pretends is playing.
+/// </summary>
 public enum PreviewMusic
 {
     Playing,
@@ -22,7 +24,9 @@ public enum PreviewMusic
     None,
 }
 
-/// <summary>One row of the page list; refreshes its title when the page is renamed.</summary>
+/// <summary>
+/// One row of the page list; refreshes its title when the page is renamed.
+/// </summary>
 public partial class PageItem : ObservableObject
 {
     public PageItem(ScreenPage page)
@@ -37,7 +41,9 @@ public partial class PageItem : ObservableObject
     public void Refresh() => OnPropertyChanged(nameof(Title));
 }
 
-/// <summary>One row of the element list; refreshes its title when the element is renamed.</summary>
+/// <summary>
+/// One row of the element list; refreshes its title when the element is renamed.
+/// </summary>
 public partial class ElementItem : ObservableObject
 {
     public ElementItem(EditElement element)
@@ -87,6 +93,7 @@ public partial class ScreenEditorViewModel : ViewModelBase
     public static ScreenTarget[] Targets { get; } = { ScreenTarget.Navigation, ScreenTarget.VirtualPitBoard };
     public static ScreenShowWhen[] ShowWhens { get; } = Enum.GetValues<ScreenShowWhen>();
     public static ScreenTextAlign[] Aligns { get; } = Enum.GetValues<ScreenTextAlign>();
+    public static ScreenTextOverflow[] Overflows { get; } = Enum.GetValues<ScreenTextOverflow>();
     public static ScreenImageFit[] Fits { get; } = Enum.GetValues<ScreenImageFit>();
     public static ImageOrigin[] Origins { get; } = Enum.GetValues<ImageOrigin>();
     public static PreviewMusic[] PreviewMusics { get; } = Enum.GetValues<PreviewMusic>();
@@ -120,21 +127,29 @@ public partial class ScreenEditorViewModel : ViewModelBase
     [ObservableProperty]
     public partial string Status { get; set; } = "";
 
-    /// <summary>Whether this screen is what the bike shows (navigation: instead of the demo image).</summary>
+    /// <summary>
+    /// Whether this screen is what the bike shows (navigation: instead of the demo image).
+    /// </summary>
     [ObservableProperty]
     public partial bool ScreenEnabled { get; set; }
 
-    /// <summary>0 = Design, 1 = Pages, 2 = Code.</summary>
+    /// <summary>
+    /// 0 = Design, 1 = Pages, 2 = Code.
+    /// </summary>
     [ObservableProperty]
     public partial int SelectedTab { get; set; }
 
     // -- Preview picture ----------------------------------------------------------------
 
-    /// <summary>The selected page as the bike would show it (design size); null until drawn.</summary>
+    /// <summary>
+    /// The selected page as the bike would show it (design size); null until drawn.
+    /// </summary>
     [ObservableProperty]
     public partial Bitmap? Preview { get; set; }
 
-    /// <summary>The selected page's elements, for the canvas to outline.</summary>
+    /// <summary>
+    /// The selected page's elements, for the canvas to outline.
+    /// </summary>
     [ObservableProperty]
     public partial IReadOnlyList<EditElement>? PreviewElements { get; set; }
 
@@ -158,6 +173,23 @@ public partial class ScreenEditorViewModel : ViewModelBase
     [ObservableProperty]
     public partial string DefaultZoomOut { get; set; } = "";
 
+    /// <summary>
+    /// The road name for this page (a template); empty uses the screen's, a blank space shows nothing.
+    /// </summary>
+    [ObservableProperty]
+    public partial string PageRoadName { get; set; } = "";
+
+    /// <summary>
+    /// The road name for pages that have none of their own (a template).
+    /// </summary>
+    [ObservableProperty]
+    public partial string DefaultRoadName { get; set; } = "";
+
+    /// <summary>
+    /// Only the navigation display has a road name.
+    /// </summary>
+    public bool ShowsRoadName => Target == ScreenTarget.Navigation;
+
     [ObservableProperty]
     public partial string PageBackground { get; set; } = "";
 
@@ -178,7 +210,10 @@ public partial class ScreenEditorViewModel : ViewModelBase
     public bool HasSelection => SelectedItem != null;
     public bool IsTextSelected => SelectedItem?.Element.Kind == EditKind.Text;
     public bool IsImageSelected => SelectedItem?.Element.Kind == EditKind.Image;
-    public bool IsEmbeddedImageSelected => SelectedItem?.Element is { Kind: EditKind.Image, ImageOrigin: ImageOrigin.Embedded };
+    public bool IsEmbeddedImageSelected =>
+        SelectedItem?.Element != null
+        && SelectedItem.Element.Kind == EditKind.Image
+        && SelectedItem.Element.ImageOrigin == ImageOrigin.Embedded;
     public bool IsProgressSelected => SelectedItem?.Element.Kind == EditKind.Progress;
     public bool HasFill => SelectedItem?.Element.Kind is EditKind.Text or EditKind.Image or EditKind.Box or EditKind.Progress;
 
@@ -211,6 +246,9 @@ public partial class ScreenEditorViewModel : ViewModelBase
 
     [ObservableProperty]
     public partial ScreenTextAlign SelAlign { get; set; }
+
+    [ObservableProperty]
+    public partial ScreenTextOverflow SelOverflow { get; set; }
 
     [ObservableProperty]
     public partial string SelColor { get; set; } = "";
@@ -262,7 +300,9 @@ public partial class ScreenEditorViewModel : ViewModelBase
         }
     }
 
-    /// <summary>Refills the page list and the screen-wide actions from <see cref="_document"/> (caller holds <see cref="_loading"/>).</summary>
+    /// <summary>
+    /// Refills the page list and the screen-wide actions from <see cref="_document"/> (caller holds <see cref="_loading"/>).
+    /// </summary>
     private void LoadPages()
     {
         SelectedPage = null;
@@ -270,6 +310,7 @@ public partial class ScreenEditorViewModel : ViewModelBase
         foreach (var page in _document.Pages) Pages.Add(new PageItem(page));
         DefaultZoomIn = _document.DefaultActions.GetValueOrDefault(ScreenEvent.ZoomIn, "");
         DefaultZoomOut = _document.DefaultActions.GetValueOrDefault(ScreenEvent.ZoomOut, "");
+        DefaultRoadName = _document.DefaultRoadName ?? "";
     }
 
     private void SetCode(string text)
@@ -289,6 +330,7 @@ public partial class ScreenEditorViewModel : ViewModelBase
     partial void OnTargetChanged(ScreenTarget value)
     {
         LoadTarget();
+        OnPropertyChanged(nameof(ShowsRoadName));
         Status = "";
     }
 
@@ -325,6 +367,7 @@ public partial class ScreenEditorViewModel : ViewModelBase
             PageName = value.Page.Name;
             PageZoomIn = value.Page.Actions.GetValueOrDefault(ScreenEvent.ZoomIn, "");
             PageZoomOut = value.Page.Actions.GetValueOrDefault(ScreenEvent.ZoomOut, "");
+            PageRoadName = value.Page.RoadName == "" ? " " : value.Page.RoadName ?? "";
             try
             {
                 _model = new PageEditModel(Target, value.Page.Xaml);
@@ -357,6 +400,23 @@ public partial class ScreenEditorViewModel : ViewModelBase
     partial void OnPageZoomOutChanged(string value) => EditAction(value, a => Store(SelectedPage?.Page.Actions, ScreenEvent.ZoomOut, a));
     partial void OnDefaultZoomInChanged(string value) => EditAction(value, a => Store(_document.DefaultActions, ScreenEvent.ZoomIn, a));
     partial void OnDefaultZoomOutChanged(string value) => EditAction(value, a => Store(_document.DefaultActions, ScreenEvent.ZoomOut, a));
+
+    partial void OnPageRoadNameChanged(string value)
+    {
+        if (_loading || SelectedPage == null) return;
+        SelectedPage.Page.RoadName = RoadNameText(value);
+        SetCode(_document.ToAxaml());
+    }
+
+    partial void OnDefaultRoadNameChanged(string value)
+    {
+        if (_loading) return;
+        _document.DefaultRoadName = RoadNameText(value);
+        SetCode(_document.ToAxaml());
+    }
+
+    // Nothing typed means "not set" (null); only spaces means "show nothing" (empty).
+    private static string? RoadNameText(string value) => value.Length == 0 ? null : value.Trim();
 
     private void EditAction(string text, Action<string?> store)
     {
@@ -470,7 +530,9 @@ public partial class ScreenEditorViewModel : ViewModelBase
         else if (renderer.LastError != null) Status = $"Can't draw this page: {renderer.LastError}";
     }
 
-    /// <summary>Call after any visual edit: stores the page XAML, refreshes the code view and the picture.</summary>
+    /// <summary>
+    /// Call after any visual edit: stores the page XAML, refreshes the code view and the picture.
+    /// </summary>
     private void PageEdited()
     {
         if (_loading || _model == null || SelectedPage == null) return;
@@ -481,13 +543,17 @@ public partial class ScreenEditorViewModel : ViewModelBase
 
     // -- Canvas <-> selection ---------------------------------------------------------------------
 
-    /// <summary>The canvas selected (or deselected) an element by touching it.</summary>
+    /// <summary>
+    /// The canvas selected (or deselected) an element by touching it.
+    /// </summary>
     public void Select(EditElement? element)
     {
         SelectedItem = element == null ? null : Items.FirstOrDefault(i => i.Element == element);
     }
 
-    /// <summary>The canvas dragged the selected element: apply it (kept inside the shown area) and show the numbers.</summary>
+    /// <summary>
+    /// The canvas dragged the selected element: apply it (kept inside the shown area) and show the numbers.
+    /// </summary>
     public void OnBoundsDragged(EditElement element, float x, float y, float width, float height)
     {
         if (_model == null) return;
@@ -540,6 +606,7 @@ public partial class ScreenEditorViewModel : ViewModelBase
             SelFontSize = e.FontSize;
             SelBold = e.Bold;
             SelAlign = e.Align;
+            SelOverflow = e.Overflow;
             SelColor = e.Color;
             SelNightColor = e.NightColor ?? "";
             SelBackground = e.Background ?? "";
@@ -563,7 +630,9 @@ public partial class ScreenEditorViewModel : ViewModelBase
         PageEdited();
     }
 
-    /// <summary>A position or size edit: kept inside the area the bike shows, with the fields corrected to what was applied.</summary>
+    /// <summary>
+    /// A position or size edit: kept inside the area the bike shows, with the fields corrected to what was applied.
+    /// </summary>
     private void EditGeometry(Func<EditElement, (float X, float Y, float W, float H)> change)
     {
         if (_loading || SelectedItem == null || _model == null) return;
@@ -584,6 +653,7 @@ public partial class ScreenEditorViewModel : ViewModelBase
     partial void OnSelFontSizeChanged(double value) => Edit(e => e.FontSize = (float)value);
     partial void OnSelBoldChanged(bool value) => Edit(e => e.Bold = value);
     partial void OnSelAlignChanged(ScreenTextAlign value) => Edit(e => e.Align = value);
+    partial void OnSelOverflowChanged(ScreenTextOverflow value) => Edit(e => e.Overflow = value);
     partial void OnSelColorChanged(string value) => Edit(e => e.Color = value);
     partial void OnSelNightColorChanged(string value) => Edit(e => e.NightColor = value);
     partial void OnSelBackgroundChanged(string value) => Edit(e => e.Background = value);
@@ -648,7 +718,9 @@ public partial class ScreenEditorViewModel : ViewModelBase
         if (_model != null) AfterAdd(_model.AddProgress());
     }
 
-    /// <summary>Adds an image element from a picked file (any format Skia can decode); big pictures are shrunk first.</summary>
+    /// <summary>
+    /// Adds an image element from a picked file (any format Skia can decode); big pictures are shrunk first.
+    /// </summary>
     public void AddImage(byte[] file, string name)
     {
         if (_model == null) return;
@@ -665,7 +737,9 @@ public partial class ScreenEditorViewModel : ViewModelBase
         Status = "";
     }
 
-    /// <summary>Replaces the selected image element's picture.</summary>
+    /// <summary>
+    /// Replaces the selected image element's picture.
+    /// </summary>
     public void ReplaceImage(byte[] file)
     {
         if (SelectedItem == null || SelectedItem.Element.Kind != EditKind.Image) return;
@@ -835,7 +909,9 @@ public partial class ScreenEditorViewModel : ViewModelBase
 
     public string ExportAxaml() => _document.ToAxaml();
 
-    /// <summary>Replaces the working screen with an imported file (not saved until Apply).</summary>
+    /// <summary>
+    /// Replaces the working screen with an imported file (not saved until Apply).
+    /// </summary>
     public void ImportAxaml(string text)
     {
         SetCode(text);

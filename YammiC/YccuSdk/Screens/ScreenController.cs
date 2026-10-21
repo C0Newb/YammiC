@@ -1,6 +1,8 @@
 namespace CNCO.YccuSdk.Screens;
 
-/// <summary>The phone's music player, as far as screen actions need it.</summary>
+/// <summary>
+/// The phone's music player, as far as screen actions need it.
+/// </summary>
 public interface IScreenMediaActions
 {
     void PlayPause();
@@ -27,7 +29,9 @@ public sealed class ScreenController
         _media = media;
     }
 
-    /// <summary>Raised after a page, flag or variable changed (the screen needs redrawing).</summary>
+    /// <summary>
+    /// Raised after a page, flag or variable changed (the screen needs redrawing).
+    /// </summary>
     public event Action? Changed;
 
     public ScreenDocument Document
@@ -62,7 +66,9 @@ public sealed class ScreenController
         }
     }
 
-    /// <summary>Swaps in an edited document. Stays on the same page if it still exists, else the first.</summary>
+    /// <summary>
+    /// Swaps in an edited document. Stays on the same page if it still exists, else the first.
+    /// </summary>
     public void SetDocument(ScreenDocument document)
     {
         lock (_gate)
@@ -151,6 +157,17 @@ public sealed class ScreenController
         }
 
         if (changed) Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// The road name for the page showing now, with its {variables} filled in: the page's own text, else the document's
+    /// default, else empty.
+    /// </summary>
+    public string RoadNameFor(ScreenContext context)
+    {
+        string? template;
+        lock (_gate) template = _document.Pages[_index].RoadName ?? _document.DefaultRoadName;
+        return string.IsNullOrEmpty(template) ? "" : ScreenVariables.Resolve(template, context);
     }
 
     public ScreenSnapshot Snapshot(ScreenContext context)

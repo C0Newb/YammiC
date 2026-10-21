@@ -13,28 +13,51 @@
     </Design.DataContext>
 
     <!-- Not in a ScrollViewer: dragging the map would scroll the page instead. -->
-    <Grid RowDefinitions="Auto,*,Auto" Margin="8" RowSpacing="8">
+    <Grid RowDefinitions="Auto,*,Auto" Margin="12,8,12,12" RowSpacing="10">
         <StackPanel Spacing="8">
             <TextBox Watermark="Track name" MaxLength="40" Text="{Binding Name}" />
             <WrapPanel>
-                <Button Margin="0,0,8,4" Content="Redraw start/finish" Command="{Binding RedrawStartFinishCommand}" />
-                <Button Margin="0,0,8,4" Content="Add sector line" IsEnabled="{Binding CanAddSector}" Command="{Binding AddSectorCommand}" />
-                <Button Margin="0,0,8,4" Content="Remove last sector" Command="{Binding RemoveLastSectorCommand}" />
+                <Button Classes="chip" Content="Start/finish" IsEnabled="{Binding CanAddStartFinish}" Command="{Binding AddStartFinishCommand}" />
+                <Button Classes="chip" Content="Add sector line" IsEnabled="{Binding CanAddSector}" Command="{Binding AddSectorCommand}" />
+                <Button Classes="chip" Content="Pit-out line" IsEnabled="{Binding CanAddPitOut}" Command="{Binding AddPitOutCommand}" />
             </WrapPanel>
+            <Border Classes="card" Padding="12,8">
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                    <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontSize="13" Text="{Binding SelectedText}" />
+                    <Button Grid.Column="1" Classes="chip" Margin="0" Content="Flip direction"
+                            IsEnabled="{Binding HasCompleteSelection}" Command="{Binding FlipSelectedCommand}" />
+                    <Button Grid.Column="2" Classes="chip" Margin="0" Content="Delete"
+                            IsEnabled="{Binding HasSelection}" Command="{Binding DeleteSelectedCommand}" />
+                </Grid>
+            </Border>
         </StackPanel>
 
-        <Grid Grid.Row="1">
-            <c:TrackMapControl x:Name="Map" ClipToBounds="True" />
-            <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" Spacing="4">
-                <Button Width="44" Height="44" Content="+" Click="ZoomIn_Click" />
-                <Button Width="44" Height="44" Content="-" Click="ZoomOut_Click" />
-                <Button Width="44" Height="44" Content="Me" Click="Here_Click" />
-            </StackPanel>
-        </Grid>
+        <Border Grid.Row="1" CornerRadius="12" ClipToBounds="True" BorderThickness="1"
+                BorderBrush="{DynamicResource SystemBaseLowColor}">
+            <Grid>
+                <c:TrackMapControl x:Name="Map" ClipToBounds="True" />
+                <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Margin="10" Spacing="10">
+                    <Border Classes="mapgroup"><StackPanel>
+                        <Button Classes="mapbtn" ToolTip.Tip="Zoom in" Click="ZoomIn_Click">
+                            <Path Classes="icon" Data="M12,5 L12,19 M5,12 L19,12" />
+                        </Button>
+                        <Border Height="1" Background="#22000000" Margin="8,0" />
+                        <Button Classes="mapbtn" ToolTip.Tip="Zoom out" Click="ZoomOut_Click">
+                            <Path Classes="icon" Data="M5,12 L19,12" />
+                        </Button>
+                    </StackPanel></Border>
+                    <Border Classes="mapgroup"><StackPanel>
+                        <Button Classes="mapbtn" ToolTip.Tip="My location" Click="Here_Click">
+                            <Path Classes="icon" Data="M12,3 L12,7 M12,17 L12,21 M3,12 L7,12 M17,12 L21,12 M12,8.5 A3.5,3.5 0 1 0 12,15.5 A3.5,3.5 0 1 0 12,8.5" />
+                        </Button>
+                    </StackPanel></Border>
+                </StackPanel>
+            </Grid>
+        </Border>
 
-        <StackPanel Grid.Row="2" Spacing="6">
-            <TextBlock TextWrapping="Wrap" Opacity="0.8" Text="{Binding Status}" />
-            <Button Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Content="Save track" Click="Save_Click" />
+        <StackPanel Grid.Row="2" Spacing="8">
+            <TextBlock TextWrapping="Wrap" Opacity="0.75" FontSize="13" Text="{Binding Status}" />
+            <Button Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="12" Content="Save track" Click="Save_Click" />
         </StackPanel>
     </Grid>
 </ContentPage>

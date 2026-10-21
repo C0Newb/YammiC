@@ -603,3 +603,39 @@ Every field — including what might look like a floating-point distance value �
 - Whether the name/road field-order quirk above actually renders correctly on-screen, or whether the two strings need swapping.
 - Distance quantization unit/scale for POI entries (currently sent as whole miles, unconfirmed).
 - Whether the Bluetooth Classic RFCOMM link your app opens (UUID `7220`) can coexist indefinitely with the existing VPB SPP link (UUID `8911`) — an earlier suspected connection-contention issue turned out to just be the bike powering off, so this remains unconfirmed either way.
+
+---
+
+## Turn-by-turn guidance (NaviLite services 4 and 19)
+
+The bike's guidance display (turn arrow, distance to the turn, road) is fed over the same NaviLite link as the map image, not over the
+ordinary BLE commands (the `0x60` packet above belongs to a different, scooter-class unit). Two messages exist; which one a bike takes
+depends on its part number from the handshake:
+
+| Part number | Message |
+|---|---|
+| `006-B3952` | `NEXT_TURN_DIST_UPDATE`, service 4 |
+| `006-B4160`, `006-B4920` | `NAVIGATION_INFO_UPDATE`, service 19 |
+| anything else | both are sent; a bike ignores the one it does not use |
+
+Both go in a phone frame (frame type 6) with payload data type "pointer". Numbers are little-endian, floats are IEEE 754 single precision,
+strings are UTF-8, at most 144 bytes each.
+
+Service 4: `[icon u8][distance f32][unit length u8][road length u8][unit][road]`.
+
+Service 19: `[icon u8][next distance f32][unit length u8][road length u8][remaining distance f32][remaining unit length u8]
+[remaining minutes u32][lane count u8][unit][road][remaining unit][lane bytes]`, at most 5 lane bytes.
+
+The icon is an arrow ordinal (the bike draws the arrow): 0 arriving, 1 arriving left, 2 arriving right, 3-5 via point, 6 keep left,
+7 keep right, 8 continue, 9 drive to, 10 exit left, 11 exit right, 12 exit, 13 ferry, 14 roundabout, 32 sharp left, 33 sharp right,
+34 left, 35 right, 36 U-turn left, 37 U-turn right, 69 none. Roundabout exits (15-31) and heading arrows (38-68) also exist.
+
+The distance is a number in the unit named by the unit string. The unit strings the bike expects ("ft", "mi", "m", "km") are a guess
+and unverified on a bike. Likewise unverified: whether the bike needs the navigation image stream to be running, and how it shows
+service 19's remaining trip and lanes. The layout comes from the packer in the reference navigation library; the bytes have not yet
+been seen on a bike.
+
+In YammiC: `NaviLiteTurn` (builders), `NavigationSdk.SetTurn` / `ClearTurn`, `BikeService.ShowTurn`, and a test form under
+Bike UI -> Navigation status -> Turn-by-turn test.
+
+First device test (006-B4160-03): the service 19 message went out and the bike showed nothing; the bike's turn-by-turn option was greyed out. The bike never sent a "start content update" for content type 2 (the turn list). Untried so far: the navigation status (service 2) says `00 00` (idle) after the setup, and the app now sends `01 00` while a turn is shown and `00 00` when it is cleared. If the bike still does not offer the screen, what makes it enable it is unknown (the authentication request's fixed bytes are the other candidate).

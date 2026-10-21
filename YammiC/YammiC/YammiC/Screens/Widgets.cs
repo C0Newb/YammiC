@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Globalization;
 using System.IO;
 using Avalonia;
 using Avalonia.Controls;
@@ -9,7 +10,9 @@ using CNCO.YccuSdk.Screens;
 
 namespace CNCO.YammiC.Screens;
 
-/// <summary>Remembers a control's day brush and swaps in a night brush when the state says it's night.</summary>
+/// <summary>
+/// Remembers a control's day brush and swaps in a night brush when the state says it's night.
+/// </summary>
 internal sealed class NightPair
 {
     private readonly AvaloniaObject _owner;
@@ -25,7 +28,9 @@ internal sealed class NightPair
 
     public IBrush? Night { get; set; }
 
-    /// <summary>Call when the brush property changes: anything we didn't set ourselves is the new day brush.</summary>
+    /// <summary>
+    /// Call when the brush property changes: anything we didn't set ourselves is the new day brush.
+    /// </summary>
     public void Capture()
     {
         if (!_applying) _day = _owner.GetValue(_property);
@@ -45,13 +50,17 @@ internal sealed class NightPair
     }
 }
 
-/// <summary>Text with <c>{variables}</c> (see <see cref="ScreenVariables"/>): <c>&lt;y:VarText Template="{}{artist} - {song}"/&gt;</c>.</summary>
+/// <summary>
+/// Text with <c>{variables}</c> (see <see cref="ScreenVariables"/>): <c>&lt;y:VarText Template="{}{artist} - {song}"/&gt;</c>.
+/// </summary>
 public class VarText : TextBlock
 {
     public static readonly StyledProperty<string?> TemplateProperty = AvaloniaProperty.Register<VarText, string?>(nameof(Template));
     public static readonly StyledProperty<IBrush?> NightForegroundProperty = AvaloniaProperty.Register<VarText, IBrush?>(nameof(NightForeground));
+    public static readonly StyledProperty<ScreenTextOverflow> OverflowProperty = AvaloniaProperty.Register<VarText, ScreenTextOverflow>(nameof(Overflow));
 
     private readonly NightPair _foreground;
+    private DateTime _scrollSince = DateTime.Now;
     private ScreenState? _state;
 
     static VarText()
@@ -63,6 +72,7 @@ public class VarText : TextBlock
             c._foreground.Night = e.NewValue as IBrush;
             c.Refresh();
         });
+        OverflowProperty.Changed.AddClassHandler<VarText>((c, _) => c.ApplyOverflow());
     }
 
     public VarText()
@@ -95,14 +105,65 @@ public class VarText : TextBlock
 
     private void OnStateChanged(object? sender, PropertyChangedEventArgs e) => Refresh();
 
+    /// <summary>
+    /// Trim keeps whatever TextWrapping/TextTrimming say; Wrap and Scroll set them (and win over them).
+    /// </summary>
+    public ScreenTextOverflow Overflow
+    {
+        get => GetValue(OverflowProperty);
+        set => SetValue(OverflowProperty, value);
+    }
+
+    private void ApplyOverflow()
+    {
+        if (Overflow == ScreenTextOverflow.Wrap)
+        {
+            TextWrapping = TextWrapping.Wrap;
+            if (TextTrimming == null || TextTrimming == TextTrimming.None) TextTrimming = TextTrimming.CharacterEllipsis;
+        }
+        else if (Overflow == ScreenTextOverflow.Scroll)
+        {
+            TextWrapping = TextWrapping.NoWrap;
+            TextTrimming = TextTrimming.None;
+        }
+        _scrollSince = Now();
+        InvalidateVisual();
+    }
+
+    private DateTime Now() => _state?.Now ?? DateTime.Now;
+
     private void Refresh()
     {
-        Text = _state == null ? Template : _state.Resolve(Template);
+        var text = _state == null ? Template : _state.Resolve(Template);
+        if (text != Text)
+        {
+            Text = text;
+            _scrollSince = Now(); // new words start from the beginning
+        }
         _foreground.Apply(_state?.Night == true);
+        UpdateScroll();
+    }
+
+    // Slides the text left by the marquee's offset. The box around it (ScreenBox) clips what slides out of view.
+    private void UpdateScroll()
+    {
+        if (Overflow != ScreenTextOverflow.Scroll || string.IsNullOrEmpty(Text) || Bounds.Width <= 0)
+        {
+            RenderTransform = null;
+            return;
+        }
+
+        var typeface = new Typeface(FontFamily, FontStyle, FontWeight, FontStretch);
+        var measured = new FormattedText(Text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface, FontSize, Foreground);
+        var overflow = measured.Width - (Bounds.Width - Padding.Left - Padding.Right);
+        var offset = ScreenMarquee.Offset(overflow, Now() - _scrollSince);
+        RenderTransform = offset > 0 ? new TranslateTransform(-offset, 0) : null;
     }
 }
 
-/// <summary>A filled rectangle (optionally with a night fill) that holds one child; used for every text/image element.</summary>
+/// <summary>
+/// A filled rectangle (optionally with a night fill) that holds one child; used for every text/image element.
+/// </summary>
 public class ScreenBox : Border
 {
     public static readonly StyledProperty<IBrush?> NightBackgroundProperty = AvaloniaProperty.Register<ScreenBox, IBrush?>(nameof(NightBackground));
@@ -123,6 +184,7 @@ public class ScreenBox : Border
     public ScreenBox()
     {
         _background = new NightPair(this, BackgroundProperty);
+        ClipToBounds = true; // scrolling text slides out of its box, not over the rest of the screen
     }
 
     protected override Type StyleKeyOverride => typeof(Border);
@@ -147,7 +209,9 @@ public class ScreenBox : Border
     private void Apply() => _background.Apply(_state?.Night == true);
 }
 
-/// <summary>The root of a page: a Canvas with a day and a night background.</summary>
+/// <summary>
+/// The root of a page: a Canvas with a day and a night background.
+/// </summary>
 public class ScreenCanvas : Canvas
 {
     public static readonly StyledProperty<IBrush?> NightBackgroundProperty = AvaloniaProperty.Register<ScreenCanvas, IBrush?>(nameof(NightBackground));
@@ -192,13 +256,19 @@ public class ScreenCanvas : Canvas
     private void Apply() => _background.Apply(_state?.Night == true);
 }
 
-/// <summary>Where a <see cref="ScreenImage"/> gets its picture.</summary>
+/// <summary>
+/// Where a <see cref="ScreenImage"/> gets its picture.
+/// </summary>
 public enum ScreenImageOrigin
 {
-    /// <summary>The base64 picture kept in <see cref="ScreenImage.Data"/>.</summary>
+    /// <summary>
+    /// The base64 picture kept in <see cref="ScreenImage.Data"/>.
+    /// </summary>
     Embedded,
 
-    /// <summary>The current track's album art (nothing is drawn while the track has none).</summary>
+    /// <summary>
+    /// The current track's album art (nothing is drawn while the track has none).
+    /// </summary>
     AlbumArt,
 }
 
@@ -253,7 +323,7 @@ public class ScreenImage : Image
             var art = _state?.AlbumArt;
             if (!force && ReferenceEquals(art, _shownArt)) return;
             _shownArt = art;
-            SetPicture(art is { Length: > 0 } ? art : null);
+            SetPicture(art != null && art.Length > 0 ? art : null);
         }
         else
         {
@@ -278,7 +348,9 @@ public class ScreenImage : Image
     }
 }
 
-/// <summary>A horizontal bar filled to <see cref="Value"/> (0..1); bind it to <c>{Binding Progress}</c>. Has night colours like the other widgets.</summary>
+/// <summary>
+/// A horizontal bar filled to <see cref="Value"/> (0..1); bind it to <c>{Binding Progress}</c>. Has night colours like the other widgets.
+/// </summary>
 public class MediaProgress : Control
 {
     public static readonly StyledProperty<double> ValueProperty = AvaloniaProperty.Register<MediaProgress, double>(nameof(Value));

@@ -105,12 +105,16 @@ internal sealed class UnifyMediaSource : IYmcMediaSource, IYmcMediaController
         }
     }
 
-    public bool TryTransportControl(CcuMusicControlRequest.Action action) =>
-        Map(action) is { } mapped && _monitor.TrySendTransportAction(mapped);
+    public bool TryTransportControl(CcuMusicControlRequest.Action action)
+    {
+        var mapped = Map(action);
+        return mapped != null && _monitor.TrySendTransportAction(mapped.Value);
+    }
 
     public void DispatchMediaKey(CcuMusicControlRequest.Action action)
     {
-        if (Map(action) is { } mapped) _monitor.SendMediaKey(mapped);
+        var mapped = Map(action);
+        if (mapped != null) _monitor.SendMediaKey(mapped.Value);
     }
 
     private static MediaTransportAction? Map(CcuMusicControlRequest.Action action) => action switch

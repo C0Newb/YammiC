@@ -35,8 +35,9 @@ public partial class DebugLogView : ContentPage
         if (DataContext is not DebugLogViewModel vm) return;
         // Selected lines if any, otherwise the whole log.
         var selected = LogList.SelectedItems;
-        var text = selected is { Count: > 0 } ? string.Join("\n", selected.Cast<string>()) : vm.AllText;
-        if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard) await clipboard.SetTextAsync(text);
+        var text = selected != null && selected.Count > 0 ? string.Join("\n", selected.Cast<string>()) : vm.AllText;
+        var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+        if (clipboard != null) await clipboard.SetTextAsync(text);
     }
 
     protected override void OnUnloaded(RoutedEventArgs e)

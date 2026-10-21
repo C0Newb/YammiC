@@ -20,7 +20,9 @@ public sealed class CanDdtV3Assembler
 
     private readonly Dictionary<ushort, Partial> _sequences = new();
 
-    /// <summary>Feeds one indication; returns the whole payload once its last fragment arrived, otherwise null.</summary>
+    /// <summary>
+    /// Feeds one indication; returns the whole payload once its last fragment arrived, otherwise null.
+    /// </summary>
     public byte[]? Feed(byte[] indication, DateTime now)
     {
         Expire(now);

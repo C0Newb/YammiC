@@ -32,9 +32,9 @@
   - [x] Navigation specific 'sdk' class (listener events subscriptions, activate()/deactive() navigation integration, sendImage())
 - [ ] Y-Tracc information transfer (built, untested on a bike; see docs/ride-modes.md)
   - [x] Receive settings
-  - [x] Send settings
-  - [x] Track/lap timer (debug page only)
-- [ ] Bike telementry
+  - [ ] Send settings
+  - [x] Track/lap timer
+- [ ] Bike telemetry
   - [x] RPM
   - [x] Speed
   - [ ] Fuel usage

@@ -53,10 +53,11 @@ public class CcuVolumeControlRequestHandler : CcuRequestHandler<CcuVolumeControl
                 affectedType = null;
                 break;
         }
-        if (affectedType is not { } type)
+        if (affectedType == null)
         {
             return;
         }
+        var type = affectedType.Value;
 
         var pct = _volume.GetVolumePercent(type);
         _log.Debug($"reporting {type} volume={pct}%");

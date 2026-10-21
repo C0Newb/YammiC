@@ -6,9 +6,13 @@ namespace CNCO.YccuSdk.Tracks;
 public enum TimerState
 {
     Idle,
-    /// <summary>Armed: the bike said ready (or the rider armed it) and GPS is being recorded, but the first line has not been crossed.</summary>
+    /// <summary>
+    /// Armed: the bike said ready (or the rider armed it) and GPS is being recorded, but the first line has not been crossed.
+    /// </summary>
     Ready,
-    /// <summary>The first start/finish crossing happened: laps are being timed.</summary>
+    /// <summary>
+    /// The first start/finish crossing happened: laps are being timed.
+    /// </summary>
     Timing,
 }
 
@@ -23,7 +27,9 @@ public interface IVibrator
     void Vibrate();
 }
 
-/// <summary>Shows the track name on the board while armed. <see cref="ReleaseAsync"/> gives the board back to the normal screens.</summary>
+/// <summary>
+/// Shows the track name on the board while armed. <see cref="ReleaseAsync"/> gives the board back to the normal screens.
+/// </summary>
 public interface IBoardMessageSender
 {
     Task ShowTrackNameAsync(string trackName);
@@ -31,7 +37,9 @@ public interface IBoardMessageSender
     Task ReleaseAsync();
 }
 
-/// <summary>Sends a finished lap to the bike. <paramref name="best"/> is the best lap before this one, if any.</summary>
+/// <summary>
+/// Sends a finished lap to the bike. <paramref name="best"/> is the best lap before this one, if any.
+/// </summary>
 public interface ILapSender
 {
     Task SendAsync(LapCompleted lap, LapCompleted? best);
@@ -92,7 +100,9 @@ public sealed class TimerController
 
     public TimerState State { get; private set; } = TimerState.Idle;
 
-    /// <summary>True while armed or timing: nothing the rider could change is changeable.</summary>
+    /// <summary>
+    /// True while armed or timing: nothing the rider could change is changeable.
+    /// </summary>
     public bool IsLocked => State != TimerState.Idle;
 
     public string? SelectedTrackId { get; private set; }
@@ -113,7 +123,9 @@ public sealed class TimerController
 
     public event Action? Changed;
 
-    /// <summary>Chooses the track for the next session. Returns false (and changes nothing) while locked or for an unknown track.</summary>
+    /// <summary>
+    /// Chooses the track for the next session. Returns false (and changes nothing) while locked or for an unknown track.
+    /// </summary>
     public bool SelectTrack(string? id)
     {
         lock (_gate)
@@ -126,14 +138,17 @@ public sealed class TimerController
         return true;
     }
 
-    /// <summary>Starts a session on the selected track. Returns a reason when it cannot (no track, already armed).</summary>
+    /// <summary>
+    /// Starts a session on the selected track. Returns a reason when it cannot (no track, already armed).
+    /// </summary>
     public string? Arm(ArmSource source, DateTime? resumeFrom = null, string? resumeSession = null)
     {
         Track track;
         lock (_gate)
         {
             if (IsLocked) return "Already armed.";
-            if (SelectedTrackId == null || _library.Get(SelectedTrackId) is not { } found) return "Pick a track first.";
+            var found = SelectedTrackId == null ? null : _library.Get(SelectedTrackId);
+            if (found == null) return "Pick a track first.";
             track = found;
             _track = track;
             _source = source;
@@ -156,10 +171,14 @@ public sealed class TimerController
         return null;
     }
 
-    /// <summary>Ends the session (rider action).</summary>
+    /// <summary>
+    /// Ends the session (rider action).
+    /// </summary>
     public void Disarm() => End("Ended by rider");
 
-    /// <summary>The bike's ready flag changed. Only a session the bike armed is ended by the bike.</summary>
+    /// <summary>
+    /// The bike's ready flag changed. Only a session the bike armed is ended by the bike.
+    /// </summary>
     public void OnReadyBit(ReadyBitState bit)
     {
         switch (bit)
@@ -173,7 +192,9 @@ public sealed class TimerController
         }
     }
 
-    /// <summary>Feeds one GPS fix. Ignored while idle.</summary>
+    /// <summary>
+    /// Feeds one GPS fix. Ignored while idle.
+    /// </summary>
     public void OnFix(GpsFix fix, Dictionary<string, double>? can = null)
     {
         IReadOnlyList<TrackEvent> events;
@@ -193,7 +214,7 @@ public sealed class TimerController
                     best = _best;
                     finished = lap;
                     _completed.Add(lap);
-                    if (_best == null || lap.Time < _best.Time) _best = lap;
+                    if (lap.Valid && (_best == null || lap.Time < _best.Time)) _best = lap;
                 }
             }
         }

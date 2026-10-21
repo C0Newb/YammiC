@@ -36,9 +36,18 @@ public class NavRefreshProfileTests
         Assert.True(l.ReelsFps < n.ReelsFps);
         Assert.True(l.ReelsJpegQuality < n.ReelsJpegQuality);
         Assert.True(l.ScreenJpegQuality < n.ScreenJpegQuality);
-        Assert.True(l.ScreenTick > n.ScreenTick);
-        Assert.True(l.ScreenFastTick > n.ScreenFastTick);
+        Assert.True(l.ScreenFastTick >= n.ScreenFastTick);
         Assert.True(l.IdleResendFps >= 1 && l.SenderFps >= 1);   // never stops the feed
+    }
+
+    [Fact]
+    public void Low_SavesPowerByShrinkingPicturesNotByLagging()
+    {
+        // Pictures are only drawn when something changed, so polling is cheap; the cost is in each picture's size.
+        var l = NavRefreshProfile.Low;
+        Assert.True(l.ScreenTick <= TimeSpan.FromSeconds(1));   // a button press or song change shows within a second
+        Assert.True(l.SenderFps >= 8);                           // and isn't held back by the sender's cap
+        Assert.True(l.ScreenJpegQuality <= 60);
     }
 
     [Theory]

@@ -47,7 +47,9 @@ public sealed class ScreenDocumentStore
         _storage.SetString(Key(target), document.ToAxaml());
     }
 
-    /// <summary>Forgets the saved screen (and any old layout) so <see cref="Load"/> returns the built-in one.</summary>
+    /// <summary>
+    /// Forgets the saved screen (and any old layout) so <see cref="Load"/> returns the built-in one.
+    /// </summary>
     public void Reset(ScreenTarget target)
     {
         _storage.SetString(Key(target), "");

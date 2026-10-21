@@ -9,7 +9,7 @@ using CNCO.YccuSdk.Logging;
 namespace CNCO.YccuSdk.Platform.Droid;
 
 /// <summary>
-/// Appends every log line to a new <c>yammic-&lt;epoch ms&gt;.log</c> in <c>Downloads/YammiC</c> (the Kotlin app's
+/// Appends every log line to a new <c>yammic-YYYY_MM_DD-HH_mm_ss.log</c> (see <see cref="LogFileNames"/>) in <c>Downloads/YammiC</c> (the Kotlin app's
 /// DownloadsLogWriter), created through MediaStore so it needs no storage permission. Writes happen on a background
 /// task so logging never blocks the caller; failures are swallowed, since logging is best effort.
 /// </summary>
@@ -66,7 +66,7 @@ public sealed class DownloadsFileSink : ILogSink
     private Stream OpenLogFile()
     {
         var resolver = _context.ContentResolver ?? throw new InvalidOperationException("No content resolver");
-        var fileName = $"yammic-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}.log";
+        var fileName = LogFileNames.For(DateTime.Now);
 
         var values = new ContentValues();
         values.Put(MediaStore.IMediaColumns.DisplayName, fileName);

@@ -21,37 +21,59 @@ namespace CNCO.YccuSdk.Bike;
 /// </summary>
 public class BikeServiceOptions
 {
-    /// <summary>Weather source; defaults to <see cref="DemoWeatherProvider"/>.</summary>
+    /// <summary>
+    /// Weather source; defaults to <see cref="DemoWeatherProvider"/>.
+    /// </summary>
     public IYmcWeatherProvider? WeatherProvider { get; init; }
 
-    /// <summary>Phone-call events (from CNCO.Unify.Device). Null: no call relaying.</summary>
+    /// <summary>
+    /// Phone-call events (from CNCO.Unify.Device). Null: no call relaying.
+    /// </summary>
     public IYmcCallStateSource? CallSource { get; init; }
 
-    /// <summary>Media-session events (from CNCO.Unify.Device). Null: no media relaying.</summary>
+    /// <summary>
+    /// Media-session events (from CNCO.Unify.Device). Null: no media relaying.
+    /// </summary>
     public IYmcMediaSource? MediaSource { get; init; }
 
-    /// <summary>Handlebar media buttons. Null: handler not registered.</summary>
+    /// <summary>
+    /// Handlebar media buttons. Null: handler not registered.
+    /// </summary>
     public IYmcMediaController? MediaController { get; init; }
 
-    /// <summary>Handlebar call answer/reject. Null: handler not registered.</summary>
+    /// <summary>
+    /// Handlebar call answer/reject. Null: handler not registered.
+    /// </summary>
     public IYmcCallController? CallController { get; init; }
 
-    /// <summary>Whether a bike headset is reported as connected (the CCU gates music metadata behind it).</summary>
+    /// <summary>
+    /// Whether a bike headset is reported as connected (the CCU gates music metadata behind it).
+    /// </summary>
     public bool HeadsetConnected { get; init; } = true;
 
-    /// <summary>The Kotlin app pushed a "YammiC - It works!" notification on every connect.</summary>
+    /// <summary>
+    /// The Kotlin app pushed a "YammiC - It works!" notification on every connect.
+    /// </summary>
     public bool SendTestNotification { get; init; } = true;
 
-    /// <summary>If set, sent to the VPB 15s after connecting (the Kotlin app's sandwich image). Any common image format.</summary>
+    /// <summary>
+    /// If set, sent to the VPB 15s after connecting (the Kotlin app's sandwich image). Any common image format.
+    /// </summary>
     public byte[]? DemoVpbImage { get; init; }
 
-    /// <summary>If set, played on the navigation screen once it becomes active (the Kotlin app's rotating sandwich). GIF or WebP.</summary>
+    /// <summary>
+    /// If set, played on the navigation screen once it becomes active (the Kotlin app's rotating sandwich). GIF or WebP.
+    /// </summary>
     public byte[]? DemoNavigationAnimation { get; init; }
 
-    /// <summary>Battery saver state (from CNCO.Unify.Device). Null: the phone is never treated as saving power.</summary>
+    /// <summary>
+    /// Battery saver state (from CNCO.Unify.Device). Null: the phone is never treated as saving power.
+    /// </summary>
     public IYmcPowerSource? PowerSource { get; init; }
 
-    /// <summary>Draws the custom screens' pages (the UI project provides an Avalonia one). Null: custom screens aren't drawn.</summary>
+    /// <summary>
+    /// Draws the custom screens' pages (the UI project provides an Avalonia one). Null: custom screens aren't drawn.
+    /// </summary>
     public IScreenRenderer? ScreenRenderer { get; init; }
 
     /// <summary>
@@ -64,7 +86,9 @@ public class BikeServiceOptions
 
     public bool NavigationEnabled { get; init; } = true;
 
-    /// <summary>Plays the reels folder for Reels Mode. Null: Reels Mode is unavailable (the platform has no video support).</summary>
+    /// <summary>
+    /// Plays the reels folder for Reels Mode. Null: Reels Mode is unavailable (the platform has no video support).
+    /// </summary>
     public IReelsPlatform? ReelsPlatform { get; init; }
 }
 
@@ -106,6 +130,7 @@ public class BikeService
     private IReadOnlyList<int> _requiredCanIds = Array.Empty<int>();
     // While true the custom VPB screen stays off the board so a message from another feature (the track name) is not overwritten.
     private volatile bool _boardOverride;
+    private CancellationTokenSource? _boardMessage;
     private readonly BikeDiscovery _discovery;
     private readonly YrcSettingsClient _yrc;
     private readonly ProfileLibrary _profileLibrary;
@@ -114,6 +139,7 @@ public class BikeService
     private readonly ScreenController _navController;
     private readonly ScreenController _vpbController;
     private readonly ScreenPresenter _navScreen;
+    private readonly RoadNameSender _roadName;
     private readonly ScreenPresenter _vpbScreen;
     private bool _vpbScreenEnabled;
     private DateTime _connectedAt = DateTime.MaxValue;
@@ -167,6 +193,7 @@ public class BikeService
         _discovery = new BikeDiscovery(logger);
         _yrc = new YrcSettingsClient(controller, logger);
         _profileLibrary = new ProfileLibrary(platform.Storage);
+        _yrc.Library = _profileLibrary;
         _lapTimer = new LapTimer(controller, logger);
         var storedExtra = platform.Storage.GetString(CanExtraIdsKey);
         if (!string.IsNullOrEmpty(storedExtra))
@@ -174,8 +201,10 @@ public class BikeService
         _can.Updated += () => CanChanged?.Invoke();
 
         ScreenSnapshot CurrentSnapshot(ScreenController controller) =>
-            controller.Snapshot(new ScreenContext(DateTime.Now, MediaMetadata, _navigation.DayNightMode == NavDayNightMode.Night, 1f,
+            controller.Snapshot(new ScreenContext(DateTime.Now, _mediaStateMonitor?.CurrentMetadata, DayNightClock.For(DateTime.Now) == NavDayNightMode.Night, 1f,
                 _canDataEnabled ? _can.Values(DateTime.UtcNow) : null, _albumArt));
+
+        _roadName = new RoadNameSender(() => navigation.State is NavigationState.Active, navigation.SetRoadName);
 
         _navScreen = new ScreenPresenter(
             "NavScreen",
@@ -194,11 +223,14 @@ public class BikeService
             minInterval: TimeSpan.Zero,
             quality: () => NavRefresh.ScreenJpegQuality,
             logger,
-            wantsFastTick: () => _canDataEnabled && _navController.CurrentPage.UsesCan,
-            fastTick: () => NavRefresh.ScreenFastTick);
+            wantsFastTick: () => WantsFastTick(_navController.CurrentPage),
+            fastTick: () => _navController.CurrentPage.UsesScroll ? NavRefresh.ScrollStep : NavRefresh.ScreenFastTick,
+            scrollStep: () => NavRefresh.ScrollStep,
+            observe: snapshot => _roadName.Update(_navController.RoadNameFor(snapshot.Context)));
 
-        // A pit board picture is a multi-chunk transfer, so: check rarely, send rarely, and not while the connect
-        // sequence is still using the board (its "Connected" message).
+        // A pit board picture is a multi-chunk transfer (about half a second on the link), so: check every second, send at most
+        // every 3 s, wait 5 s after the bike refused one (it does while it is on a screen that can't show it), and not while the
+        // connect sequence is still using the board (its "Connected" message).
         _vpbScreen = new ScreenPresenter(
             "VpbScreen",
             ScreenTarget.VirtualPitBoard,
@@ -206,24 +238,39 @@ public class BikeService
             () => _vpbController.CurrentPage,
             () => CurrentSnapshot(_vpbController),
             () => ScreenSizes.DesignSize(ScreenTarget.VirtualPitBoard),
+            // The pit board can't be seen (and the bike refuses it) while the bike is showing the navigation screen.
             () => _vpbEnabled && _vpbScreenEnabled && !_boardOverride && _controller.IsBikeConnected &&
+                  _navigation.ImageDemand != NavImageDemand.Wanted &&
                   DateTime.UtcNow - _connectedAt > TimeSpan.FromSeconds(8),
             async jpeg =>
             {
-                var sent = await _controller.SendVirtualPitBoardMessageAsync(jpeg).ConfigureAwait(false);
+                var sent = await SendBoardAsync(jpeg).ConfigureAwait(false);
                 if (sent) SetVpbStatus("Custom screen");
                 return sent;
             },
-            tick: () => TimeSpan.FromSeconds(3),
-            minInterval: TimeSpan.FromSeconds(15),
+            tick: () => TimeSpan.FromSeconds(1),
+            minInterval: TimeSpan.FromSeconds(3),
             quality: () => 85,
-            logger);
+            logger,
+            retryInterval: TimeSpan.FromSeconds(5));
 
         _navController.Changed += () => _navScreen.Refresh();
         // When the bike starts asking for the picture, draw it afresh (nothing was rendered while it was not looking).
         _navigation.ImageDemandChanged += demand =>
         {
-            if (demand == NavImageDemand.Wanted) _navScreen.Invalidate();
+            if (demand == NavImageDemand.Wanted)
+            {
+                _roadName.Reset(); // the bike may have dropped the text while it was on another screen
+                _navScreen.Invalidate();
+            }
+            // The bike has just left the navigation screen: the pit board may be showable now, so try it without waiting.
+            if (demand == NavImageDemand.Paused) _vpbScreen.RetryNow();
+            // Reels play sound on the phone: when the bike leaves the navigation screen it goes quiet, and returns with it.
+            if (_navMode == NavMode.Reels && _navigationWasActive)
+            {
+                if (demand == NavImageDemand.Paused) _reels?.Suspend();
+                else if (demand == NavImageDemand.Wanted) _reels?.Resume();
+            }
         };
         _vpbController.Changed += () => _vpbScreen.Refresh();
 
@@ -297,10 +344,14 @@ public class BikeService
 
     public string VpbStatus => _vpbStatus;
 
-    /// <summary>Latest media metadata, or null when there is no media source / nothing yet.</summary>
+    /// <summary>
+    /// Latest media metadata, or null when there is no media source / nothing yet.
+    /// </summary>
     public YmcMediaMetaData? MediaMetadata => _mediaStateMonitor?.LatestMetadata;
 
-    /// <summary>Raised when <see cref="VpbEnabled"/>, <see cref="NavigationEnabled"/> or <see cref="VpbStatus"/> change.</summary>
+    /// <summary>
+    /// Raised when <see cref="VpbEnabled"/>, <see cref="NavigationEnabled"/> or <see cref="VpbStatus"/> change.
+    /// </summary>
     public event Action? StatusChanged;
 
     public event Action<YmcMediaMetaData?>? MediaMetadataChanged;
@@ -338,6 +389,16 @@ public class BikeService
     }
 
     /// <summary>
+    /// Shows a turn-by-turn instruction on the bike's guidance display (it travels over the navigation link, so the bike's navigation
+    /// screen must be open). Returns false when that link is not up.
+    /// </summary>
+    public bool ShowTurn(Navigation.Protocol.TurnGuidance turn, double remainingMeters = 0, int remainingMinutes = 0) =>
+        _navigation.SetTurn(turn, remainingMeters, remainingMinutes);
+
+    /// <summary>Takes the instruction off the guidance display.</summary>
+    public bool ClearTurn() => _navigation.ClearTurn();
+
+    /// <summary>
     /// Sends an image (PNG, JPEG, ...) to the Virtual Pit Board, converting it to the 600x306 JPEG the CCU wants.
     /// Returns false if VPB is disabled, the bike isn't connected, the image can't be decoded, or the CCU rejected it.
     /// </summary>
@@ -350,12 +411,14 @@ public class BikeService
             _log.Debug("sendVpbImage: failed to decode image");
             return false;
         }
-        var sent = await _controller.SendVirtualPitBoardMessageAsync(image).ConfigureAwait(false);
+        var sent = await SendBoardAsync(image).ConfigureAwait(false);
         if (sent) SetVpbStatus("Custom image");
         return sent;
     }
 
-    /// <summary>Clears whatever the Virtual Pit Board is showing. False if not connected or the CCU rejected it.</summary>
+    /// <summary>
+    /// Clears whatever the Virtual Pit Board is showing. False if not connected or the CCU rejected it.
+    /// </summary>
     public async Task<bool> ClearVpbAsync()
     {
         var cleared = await _controller.ClearVirtualPitBoardAsync().ConfigureAwait(false);
@@ -390,7 +453,9 @@ public class BikeService
 
     // -- Lifecycle ------------------------------------------------------------
 
-    /// <summary>Registers the CCU request handlers and the on-connect job, and starts the monitors. Idempotent.</summary>
+    /// <summary>
+    /// Registers the CCU request handlers and the on-connect job, and starts the monitors. Idempotent.
+    /// </summary>
     public void Start()
     {
         if (_started) return;
@@ -437,7 +502,8 @@ public class BikeService
         _phoneCallMonitor?.Start();
         _mediaStateMonitor?.Start();
 
-        if (_options.PowerSource is { } power)
+        var power = _options.PowerSource;
+        if (power != null)
         {
             power.PowerSaveModeChanged += OnPowerSaveModeChanged;
             power.Start();
@@ -447,7 +513,7 @@ public class BikeService
 
         _navigation.StateChanged += OnNavigationStateChanged;
         _navigation.ReportHomeAndOffice = _homeAndWorkEnabled;
-        _navigation.SetDayNightMode(CurrentDayNightMode());
+        _navigation.SetDayNightMode(DayNightClock.For(DateTime.Now));
         if (_vpbScreenEnabled) _vpbScreen.Start();
         _navigation.OnZoomInRequested = () =>
         {
@@ -484,12 +550,15 @@ public class BikeService
         };
     }
 
-    /// <summary>Stops the monitors and tears the connection down.</summary>
+    /// <summary>
+    /// Stops the monitors and tears the connection down.
+    /// </summary>
     public void Stop()
     {
         _phoneCallMonitor?.Stop();
         _mediaStateMonitor?.Stop();
-        if (_options.PowerSource is { } power)
+        var power = _options.PowerSource;
+        if (power != null)
         {
             power.PowerSaveModeChanged -= OnPowerSaveModeChanged;
             power.Stop();
@@ -504,7 +573,9 @@ public class BikeService
         _started = false;
     }
 
-    /// <summary>Call after the user grants READ_PHONE_STATE etc. at runtime so monitoring can start.</summary>
+    /// <summary>
+    /// Call after the user grants READ_PHONE_STATE etc. at runtime so monitoring can start.
+    /// </summary>
     public void RestartPhoneCallMonitor() => _phoneCallMonitor?.Start();
 
     /// <summary>
@@ -519,22 +590,34 @@ public class BikeService
 
     // -- Bike (CAN) data ---------------------------------------------------
 
-    /// <summary>The latest CAN readings (raw and decoded).</summary>
+    /// <summary>
+    /// The latest CAN readings (raw and decoded).
+    /// </summary>
     public CanTelemetry Can => _can;
 
-    /// <summary>The bike's ride-mode settings (profiles).</summary>
+    /// <summary>
+    /// The bike's ride-mode settings (profiles).
+    /// </summary>
     public YrcSettingsClient Yrc => _yrc;
 
-    /// <summary>The rider's saved ride modes.</summary>
+    /// <summary>
+    /// The rider's saved ride modes.
+    /// </summary>
     public ProfileLibrary ProfileLibrary => _profileLibrary;
 
-    /// <summary>A stopwatch that reports laps to the bike.</summary>
+    /// <summary>
+    /// A stopwatch that reports laps to the bike.
+    /// </summary>
     public LapTimer LapTimer => _lapTimer;
 
-    /// <summary>Decoded CAN values that are fresh right now (all null while <see cref="CanDataEnabled"/> is off).</summary>
+    /// <summary>
+    /// Decoded CAN values that are fresh right now (all null while <see cref="CanDataEnabled"/> is off).
+    /// </summary>
     public CanValues CanValues => _canDataEnabled ? _can.Values(DateTime.UtcNow) : CanValues.Empty;
 
-    /// <summary>Raised when a CAN response arrived (as often as the poll interval), or the setting changed.</summary>
+    /// <summary>
+    /// Raised when a CAN response arrived (as often as the poll interval), or the setting changed.
+    /// </summary>
     public event Action? CanChanged;
 
     /// <summary>
@@ -588,15 +671,46 @@ public class BikeService
     public async Task<bool> ShowBoardMessageAsync(string text)
     {
         _boardOverride = true;
-        if (!_vpbEnabled || !_controller.IsBikeConnected) return false;
-        var sent = await _controller.SendVirtualPitBoardMessageAsync(VpbImageBuilder.FromText(text, SKColors.White)).ConfigureAwait(false);
-        if (sent) SetVpbStatus("Message");
-        return sent;
+        _boardMessage?.Cancel();
+        var cancellation = _boardMessage = CancellationTokenSource.CreateLinkedTokenSource(_lifetime);
+        if (!_vpbEnabled) return false;
+
+        // The bike changes screens at the moment a session arms (it stops the navigation picture), and answers a pit board request
+        // sent in that moment with silence or a rejection. So ask again every few seconds until it takes the message, or the
+        // message is released, or about the time the bike needs to become ready at all has passed.
+        var image = VpbImageBuilder.FromText(text, SKColors.White);
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(90);
+        for (var attempt = 1; !cancellation.IsCancellationRequested && DateTime.UtcNow < deadline; attempt++)
+        {
+            if (_controller.IsBikeConnected)
+            {
+                var sent = await SendBoardAsync(image).ConfigureAwait(false);
+                if (sent)
+                {
+                    SetVpbStatus("Message");
+                    _log.Info($"Board message '{text}' shown after {attempt} attempt(s)");
+                    return true;
+                }
+            }
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(2), cancellation.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+        }
+        _log.Info($"Board message '{text}' not shown (released or the bike did not accept it)");
+        return false;
     }
 
-    /// <summary>Lets the custom VPB screen draw again after <see cref="ShowBoardMessageAsync"/>.</summary>
+    /// <summary>
+    /// Lets the custom VPB screen draw again after <see cref="ShowBoardMessageAsync"/>.
+    /// </summary>
     public Task ReleaseBoardAsync()
     {
+        _boardMessage?.Cancel();
         _boardOverride = false;
         _vpbScreen.Invalidate();
         return Task.CompletedTask;
@@ -648,7 +762,9 @@ public class BikeService
         return _discovery.Report();
     }
 
-    /// <summary>The CAN IDs asked for (a subset of <see cref="CanSignals.KnownIds"/>). Persisted; applied right away when connected.</summary>
+    /// <summary>
+    /// The CAN IDs asked for (a subset of <see cref="CanSignals.KnownIds"/>). Persisted; applied right away when connected.
+    /// </summary>
     public IReadOnlyList<int> CanSignalIds
     {
         get => _canIds;
@@ -690,7 +806,9 @@ public class BikeService
         }
     }
 
-    /// <summary>Whether <see cref="OnBikeBluetoothConnected"/> starts a connection attempt.</summary>
+    /// <summary>
+    /// Whether <see cref="OnBikeBluetoothConnected"/> starts a connection attempt.
+    /// </summary>
     public bool AutoConnectEnabled
     {
         get => _autoConnectEnabled;
@@ -863,6 +981,32 @@ public class BikeService
         }
     }
 
+    // Every pit board send goes through here so the log shows, next to the bike's answer, what the bike was doing: its screen value
+    // (CAN 0x03BF byte 4, low nibble; only known while the Track Timer asks for it) and whether it wanted the navigation picture.
+    private async Task<bool> SendBoardAsync(byte[] image)
+    {
+        var sent = await _controller.SendVirtualPitBoardMessageAsync(image).ConfigureAwait(false);
+        var screen = "unknown";
+        foreach (var reading in _can.Raw())
+        {
+            if (reading.Id == 0x03BF && reading.Data.Length >= 5) screen = (reading.Data[4] & 0x0F).ToString();
+        }
+        _log.Debug($"pit board {(sent ? "accepted" : "refused")}: bike screen value {screen}, navigation picture {_navigation.ImageDemand}");
+        return sent;
+    }
+
+    // Bike data refreshes faster; so does a playing track whose position is on the page (it moves every second) and a page
+    // with scrolling text while a track shows.
+    private bool WantsFastTick(ScreenPage page)
+    {
+        if (_canDataEnabled && page.UsesCan) return true;
+
+        var media = _mediaStateMonitor?.CurrentMetadata;
+        if (media == null) return false;
+        if (page.UsesMediaPosition && media.PlaybackState == YmcMediaPlaybackState.Playing) return true;
+        return page.UsesScroll && new ScreenContext(DateTime.Now, media, false).HasMusic;
+    }
+
     private void OnNavigationStateChanged(NavigationState state)
     {
         // The state is re-published with every frame sent; only react to the transitions into and out of Active.
@@ -910,6 +1054,7 @@ public class BikeService
             if (mode == NavMode.Ui)
             {
                 _log.Debug("Navigation active! Showing custom screen");
+                _roadName.Reset();
                 _navScreen.Start();
                 return;
             }
@@ -928,13 +1073,6 @@ public class BikeService
 
     // -- Day / night ----------------------------------------------------------
 
-    // The phone doesn't know the bike's headlight/ambient sensor, so this is time based: dark from 19:00 to 06:00.
-    private static NavDayNightMode CurrentDayNightMode()
-    {
-        var hour = DateTime.Now.Hour;
-        return hour is >= 19 or < 6 ? NavDayNightMode.Night : NavDayNightMode.Day;
-    }
-
     private void StartDayNightLoop()
     {
         StopDayNightLoop();
@@ -947,7 +1085,7 @@ public class BikeService
             {
                 while (true)
                 {
-                    _navigation.SetDayNightMode(CurrentDayNightMode());
+                    _navigation.SetDayNightMode(DayNightClock.For(DateTime.Now));
                     _navScreen.Refresh();
                     _vpbScreen.Refresh();
                     await Task.Delay(TimeSpan.FromMinutes(1), token).ConfigureAwait(false);
@@ -972,10 +1110,14 @@ public class BikeService
     private volatile bool _batterySaver;
     private NavRefreshProfile? _appliedRefresh;
 
-    /// <summary>The profile in force now: the chosen mode, with <see cref="NavRefreshMode.Auto"/> following the phone's battery saver.</summary>
+    /// <summary>
+    /// The profile in force now: the chosen mode, with <see cref="NavRefreshMode.Auto"/> following the phone's battery saver.
+    /// </summary>
     public NavRefreshProfile NavRefresh => NavRefreshProfile.For(_navRefreshMode, _batterySaver);
 
-    /// <summary>How the navigation screen's refresh rate is chosen. Persisted; applies straight away.</summary>
+    /// <summary>
+    /// How the navigation screen's refresh rate is chosen. Persisted; applies straight away.
+    /// </summary>
     public NavRefreshMode NavRefreshMode
     {
         get => _navRefreshMode;
@@ -994,7 +1136,9 @@ public class BikeService
         ApplyNavRefresh();
     }
 
-    /// <summary>Pushes the profile in force into the things that run at a rate. Does nothing if it didn't change.</summary>
+    /// <summary>
+    /// Pushes the profile in force into the things that run at a rate. Does nothing if it didn't change.
+    /// </summary>
     private void ApplyNavRefresh()
     {
         var profile = NavRefresh;
@@ -1008,7 +1152,9 @@ public class BikeService
 
     // -- Custom screens -------------------------------------------------------
 
-    /// <summary>The saved screen for <paramref name="target"/> (the built-in one if none was saved) as AXAML text.</summary>
+    /// <summary>
+    /// The saved screen for <paramref name="target"/> (the built-in one if none was saved) as AXAML text.
+    /// </summary>
     public string GetScreenAxaml(ScreenTarget target) => ScreenControllerFor(target).Document.ToAxaml();
 
     /// <summary>
@@ -1039,14 +1185,18 @@ public class BikeService
         return Array.Empty<ScreenIssue>();
     }
 
-    /// <summary>Discards the saved screen for <paramref name="target"/> and goes back to the built-in one.</summary>
+    /// <summary>
+    /// Discards the saved screen for <paramref name="target"/> and goes back to the built-in one.
+    /// </summary>
     public void ResetScreenDocument(ScreenTarget target)
     {
         _screenDocs.Reset(target);
         UseScreenDocument(target, _screenDocs.Load(target));
     }
 
-    /// <summary>False where pages can't be drawn (no renderer, or the platform can't load XAML at run time).</summary>
+    /// <summary>
+    /// False where pages can't be drawn (no renderer, or the platform can't load XAML at run time).
+    /// </summary>
     public bool ScreenRenderingSupported => _options.ScreenRenderer != null;
 
     private ScreenController ScreenControllerFor(ScreenTarget target) => target == ScreenTarget.Navigation ? _navController : _vpbController;
@@ -1101,10 +1251,14 @@ public class BikeService
 
     // -- Reels ----------------------------------------------------------------
 
-    /// <summary>Whether this platform can play videos for Reels Mode.</summary>
+    /// <summary>
+    /// Whether this platform can play videos for Reels Mode.
+    /// </summary>
     public bool ReelsSupported => _reels != null;
 
-    /// <summary>The reels folder (an opaque platform URI), or null if none was chosen.</summary>
+    /// <summary>
+    /// The reels folder (an opaque platform URI), or null if none was chosen.
+    /// </summary>
     public string? ReelsFolder
     {
         get
@@ -1114,7 +1268,9 @@ public class BikeService
         }
     }
 
-    /// <summary>A short name of the reels folder for display.</summary>
+    /// <summary>
+    /// A short name of the reels folder for display.
+    /// </summary>
     public string? ReelsFolderName
     {
         get
@@ -1124,7 +1280,9 @@ public class BikeService
         }
     }
 
-    /// <summary>Chooses the reels folder; restarts the reels if they are showing.</summary>
+    /// <summary>
+    /// Chooses the reels folder; restarts the reels if they are showing.
+    /// </summary>
     public void SetReelsFolder(string folderUri, string? displayName)
     {
         _options.ReelsPlatform?.RememberFolder(folderUri);
@@ -1160,7 +1318,9 @@ public class BikeService
         _navScreen.Refresh();
     }
 
-    /// <summary>Sends a fake Virtual Pit Board notification announcing which nav-screen button was tapped.</summary>
+    /// <summary>
+    /// Sends a fake Virtual Pit Board notification announcing which nav-screen button was tapped.
+    /// </summary>
     private void SendNavRequestNotification(string message)
     {
         if (!_vpbEnabled) return;
@@ -1169,7 +1329,7 @@ public class BikeService
             try
             {
                 var image = VpbImageBuilder.FromText(message, SKColors.Green);
-                var sent = await _controller.SendVirtualPitBoardMessageAsync(image).ConfigureAwait(false);
+                var sent = await SendBoardAsync(image).ConfigureAwait(false);
                 if (sent) SetVpbStatus(message);
             }
             catch (Exception t)
@@ -1179,7 +1339,9 @@ public class BikeService
         });
     }
 
-    /// <summary>Lets screen actions (Media.PlayPause/Next/Previous) drive the phone's music player.</summary>
+    /// <summary>
+    /// Lets screen actions (Media.PlayPause/Next/Previous) drive the phone's music player.
+    /// </summary>
     private sealed class ScreenMediaActions : IScreenMediaActions
     {
         private readonly BikeService _owner;

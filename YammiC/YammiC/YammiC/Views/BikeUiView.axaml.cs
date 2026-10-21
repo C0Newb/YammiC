@@ -6,12 +6,15 @@ using YammiC.ViewModels;
 
 namespace YammiC.Views;
 
-/// <summary>The settings for what the bike's displays show (navigation screen and pit board) and the way into the screen editor.</summary>
+/// <summary>
+/// The settings for what the bike's displays show (navigation screen and pit board) and the way into the screen editor.
+/// </summary>
 public partial class BikeUiView : ContentPage
 {
     public BikeUiView()
     {
         InitializeComponent();
+        PitCard.DataContext = new PitBoardImageViewModel(App.Controller);
     }
 
     private async void ChooseReelsFolder_Click(object? sender, RoutedEventArgs e)

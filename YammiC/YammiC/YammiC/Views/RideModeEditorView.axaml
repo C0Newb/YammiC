@@ -1,0 +1,47 @@
+<ContentPage xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:YammiC.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
+             Header="Edit ride mode"
+             x:DataType="vm:RideModeEditorViewModel"
+             x:Class="YammiC.Views.RideModeEditorView">
+    <Design.DataContext>
+        <vm:RideModeEditorViewModel />
+    </Design.DataContext>
+
+    <ScrollViewer>
+        <StackPanel Margin="16" Spacing="12">
+            <TextBlock Classes="subtitle" Text="{Binding ModeText}" />
+            <TextBlock Opacity="0.7" TextWrapping="Wrap"
+                       Text="This edits the copy in your library. Nothing changes on the bike until you send it from the ride modes page." />
+
+            <TextBox Watermark="Label (your own name for this entry)" Text="{Binding Label}" />
+            <TextBox Watermark="Name on the bike (10 characters)" MaxLength="10" Text="{Binding BikeName}" />
+
+            <ItemsControl ItemsSource="{Binding Rows}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:RideValueRow">
+                        <Border Classes="card" Margin="0,0,0,8">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock FontWeight="SemiBold" Text="{Binding Title}" />
+                                    <TextBlock Opacity="0.7" FontSize="12" TextWrapping="Wrap" Text="{Binding Detail}" />
+                                </StackPanel>
+                                <NumericUpDown Grid.Column="1" Width="150"
+                                               FormatString="0" Increment="1"
+                                               Minimum="{Binding Min}" Maximum="{Binding Max}"
+                                               Value="{Binding Value}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <TextBlock TextWrapping="Wrap" Text="{Binding Status}" />
+            <Button Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                    Content="Save" Click="Save_Click" />
+        </StackPanel>
+    </ScrollViewer>
+</ContentPage>

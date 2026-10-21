@@ -3,7 +3,9 @@ using CNCO.YccuSdk.Platform;
 
 namespace YammiC.Services;
 
-/// <summary>A key/value store that lives only as long as the app runs (the simulator and the broker-only controller).</summary>
+/// <summary>
+/// A key/value store that lives only as long as the app runs (the simulator and the broker-only controller).
+/// </summary>
 public sealed class MemoryKeyValueStore : IYmcKeyValueStore
 {
     private readonly Dictionary<string, string> _values = new();

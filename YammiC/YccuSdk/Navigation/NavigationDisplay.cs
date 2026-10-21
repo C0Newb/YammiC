@@ -1,9 +1,13 @@
 namespace CNCO.YccuSdk.Navigation;
 
-/// <summary>Pixel size of the CCU's navigation display, which images must match to render correctly.</summary>
+/// <summary>
+/// Pixel size of the CCU's navigation display, which images must match to render correctly.
+/// </summary>
 public readonly record struct NavDisplaySize(int Width, int Height)
 {
-    /// <summary>Size used until the CCU has announced its part number.</summary>
+    /// <summary>
+    /// Size used until the CCU has announced its part number.
+    /// </summary>
     public static readonly NavDisplaySize Default = new(480, 240);
 
     /// <summary>
@@ -23,7 +27,9 @@ public readonly record struct NavDisplaySize(int Width, int Height)
     }
 }
 
-/// <summary>DAY_NIGHT_MODE_UPDATE values (StreetCross's NaviLiteDayNightModeType).</summary>
+/// <summary>
+/// DAY_NIGHT_MODE_UPDATE values (StreetCross's NaviLiteDayNightModeType).
+/// </summary>
 public enum NavDayNightMode : byte
 {
     Auto = 0,

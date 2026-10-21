@@ -2,7 +2,9 @@ namespace CNCO.YccuSdk.Packets.Ccu;
 
 using CNCO.YccuSdk.Logging;
 
-/// <summary>CCU rejected our `VirtualPitBoardRequest`. No payload beyond the command code.</summary>
+/// <summary>
+/// CCU rejected our `VirtualPitBoardRequest`. No payload beyond the command code.
+/// </summary>
 [SuppressUiLog(YmcCommandCode.VirtualPitBoardResponseNg)]
 public class CcuVirtualPitBoardResponseNg : CcuIncomingResponse
 {

@@ -15,7 +15,9 @@ public record CanValueRow(string Name, string Value);
 
 public record CanRawRow(string Id, string Name, string Bytes, string Age, string Changed);
 
-/// <summary>A checkbox for one CAN ID that can be requested.</summary>
+/// <summary>
+/// A checkbox for one CAN ID that can be requested.
+/// </summary>
 public partial class CanSignalOption : ObservableObject
 {
     public CanSignalOption(CanSignalInfo info, bool selected)
@@ -34,7 +36,9 @@ public partial class CanSignalOption : ObservableObject
     public partial bool IsSelected { get; set; }
 }
 
-/// <summary>Live bike (CAN) data: the decoded values and the raw bytes of every ID we asked for.</summary>
+/// <summary>
+/// Live bike (CAN) data: the decoded values and the raw bytes of every ID we asked for.
+/// </summary>
 public partial class CanViewModel : BikeViewModelBase
 {
     private bool _applying;
@@ -45,7 +49,9 @@ public partial class CanViewModel : BikeViewModelBase
     [ObservableProperty]
     public partial string Status { get; set; } = "";
 
-    /// <summary>Extra CAN IDs in hex (e.g. 0x0123, 0400) to ask the bike for while exploring.</summary>
+    /// <summary>
+    /// Extra CAN IDs in hex (e.g. 0x0123, 0400) to ask the bike for while exploring.
+    /// </summary>
     [ObservableProperty]
     public partial string ExtraIdsText { get; set; } = "";
 
@@ -197,7 +203,7 @@ public partial class CanViewModel : BikeViewModelBase
     private const string Dash = "—";
 
     private static string Num(double? value, string format, string unit) =>
-        value is { } d ? d.ToString(format, CultureInfo.CurrentCulture) + unit : Dash;
+        value != null ? value.Value.ToString(format, CultureInfo.CurrentCulture) + unit : Dash;
 
     private static string Ago(TimeSpan age) =>
         age.TotalSeconds < 1 ? "now" : age.TotalMinutes < 1 ? $"{age.TotalSeconds:0}s ago" : $"{age.TotalMinutes:0}m ago";

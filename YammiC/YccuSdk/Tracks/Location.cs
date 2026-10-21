@@ -1,15 +1,23 @@
 namespace CNCO.YccuSdk.Tracks;
 
-/// <summary>Where GPS fixes come from. The Android implementation uses the platform location manager.</summary>
+/// <summary>
+/// Where GPS fixes come from. The Android implementation uses the platform location manager.
+/// </summary>
 public interface ILocationSource
 {
-    /// <summary>Whether location can be read now (in the foreground).</summary>
+    /// <summary>
+    /// Whether location can be read now (in the foreground).
+    /// </summary>
     bool HasPermission { get; }
 
-    /// <summary>Whether location can still be read when the app is not showing (needed for the bike to start a session).</summary>
+    /// <summary>
+    /// Whether location can still be read when the app is not showing (needed for the bike to start a session).
+    /// </summary>
     bool HasBackgroundPermission { get; }
 
-    /// <summary>The most recent fix the system knows of, if any.</summary>
+    /// <summary>
+    /// The most recent fix the system knows of, if any.
+    /// </summary>
     GpsFix? LastKnown { get; }
 
     /// <summary>
@@ -18,13 +26,17 @@ public interface ILocationSource
     /// </summary>
     void RequestPermission(bool background);
 
-    /// <summary>Starts delivering fixes about <paramref name="hz"/> times a second. Calling it again changes the rate.</summary>
+    /// <summary>
+    /// Starts delivering fixes about <paramref name="hz"/> times a second. Calling it again changes the rate.
+    /// </summary>
     void Start(double hz, Action<GpsFix> onFix);
 
     void Stop();
 }
 
-/// <summary>For platforms without GPS (desktop, tests): permission is never granted.</summary>
+/// <summary>
+/// For platforms without GPS (desktop, tests): permission is never granted.
+/// </summary>
 public sealed class NoLocationSource : ILocationSource
 {
     public bool HasPermission => false;
@@ -43,7 +55,9 @@ public static class GpsRateProbe
 {
     public static readonly IReadOnlyList<double> Candidates = new[] { 1.0, 2.0, 5.0, 10.0 };
 
-    /// <summary>Fixes per second actually received (0 when there are too few to tell).</summary>
+    /// <summary>
+    /// Fixes per second actually received (0 when there are too few to tell).
+    /// </summary>
     public static double Measure(IReadOnlyList<GpsFix> fixes)
     {
         if (fixes.Count < 3) return 0;
@@ -51,10 +65,14 @@ public static class GpsRateProbe
         return seconds <= 0 ? 0 : (fixes.Count - 1) / seconds;
     }
 
-    /// <summary>A rate counts as supported when at least 80 % of it arrives.</summary>
+    /// <summary>
+    /// A rate counts as supported when at least 80 % of it arrives.
+    /// </summary>
     public static bool Supports(double requestedHz, double measuredHz) => measuredHz >= requestedHz * 0.8;
 
-    /// <summary>Tries each candidate for <paramref name="perRate"/> and returns the supported ones (always including 1 Hz if any fixes arrived).</summary>
+    /// <summary>
+    /// Tries each candidate for <paramref name="perRate"/> and returns the supported ones (always including 1 Hz if any fixes arrived).
+    /// </summary>
     public static async Task<IReadOnlyList<double>> ProbeAsync(ILocationSource source, TimeSpan perRate, CancellationToken cancellation = default)
     {
         var supported = new List<double>();
@@ -81,7 +99,9 @@ public static class GpsRateProbe
     }
 }
 
-/// <summary>For platforms without a vibrator.</summary>
+/// <summary>
+/// For platforms without a vibrator.
+/// </summary>
 public sealed class NullVibrator : IVibrator
 {
     public void Vibrate() { }

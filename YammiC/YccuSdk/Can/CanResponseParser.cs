@@ -1,6 +1,8 @@
 namespace CNCO.YccuSdk.Can;
 
-/// <summary>One CAN signal as the bike reported it.</summary>
+/// <summary>
+/// One CAN signal as the bike reported it.
+/// </summary>
 public readonly record struct CanReading(int Id, byte[] Data);
 
 /// <summary>

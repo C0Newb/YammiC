@@ -12,13 +12,19 @@ public enum EditKind
     Other,
 }
 
-/// <summary>Where an Image element's picture comes from.</summary>
+/// <summary>
+/// Where an Image element's picture comes from.
+/// </summary>
 public enum ImageOrigin
 {
-    /// <summary>A picture kept inside the page.</summary>
+    /// <summary>
+    /// A picture kept inside the page.
+    /// </summary>
     Embedded,
 
-    /// <summary>The current track's album art.</summary>
+    /// <summary>
+    /// The current track's album art.
+    /// </summary>
     AlbumArt,
 }
 
@@ -65,7 +71,8 @@ public sealed class EditElement
         }
         set
         {
-            if (Inner is { } inner) Set(inner, "Template", value.StartsWith('{') ? "{}" + value : value);
+            var inner = Inner;
+            if (inner != null) Set(inner, "Template", value.StartsWith('{') ? "{}" + value : value);
         }
     }
 
@@ -85,6 +92,12 @@ public sealed class EditElement
     {
         get => Enum.TryParse<ScreenTextAlign>((string?)Inner?.Attribute("TextAlignment"), out var v) ? v : ScreenTextAlign.Left;
         set => Set(Inner, "TextAlignment", value.ToString());
+    }
+
+    public ScreenTextOverflow Overflow
+    {
+        get => Enum.TryParse<ScreenTextOverflow>((string?)Inner?.Attribute("Overflow"), out var v) ? v : ScreenTextOverflow.Trim;
+        set => Set(Inner, "Overflow", value == ScreenTextOverflow.Trim ? null : value.ToString());
     }
 
     public string Color
@@ -120,7 +133,9 @@ public sealed class EditElement
         set => Set(Node, Kind == EditKind.Progress ? "NightTrack" : "NightBackground", string.IsNullOrWhiteSpace(value) ? null : value.Trim());
     }
 
-    /// <summary>The picture of an Image element as base64; null for anything else.</summary>
+    /// <summary>
+    /// The picture of an Image element as base64; null for anything else.
+    /// </summary>
     public string? ImageData
     {
         get => Kind == EditKind.Image ? (string?)Inner?.Attribute("Data") : null;
@@ -177,7 +192,9 @@ public sealed class EditElement
     private static string Num(float value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 }
 
-/// <summary>Edits one page's XAML as a list of elements. Positions are in the target's design space and are kept inside <see cref="ScreenSizes.Bounds"/>.</summary>
+/// <summary>
+/// Edits one page's XAML as a list of elements. Positions are in the target's design space and are kept inside <see cref="ScreenSizes.Bounds"/>.
+/// </summary>
 public sealed class PageEditModel
 {
     private static readonly XNamespace W = ScreenDocument.WidgetNs;
@@ -249,7 +266,9 @@ public sealed class PageEditModel
         return Add(box);
     }
 
-    /// <summary>Adds a picture that shows the current track's album art (nothing while the track has none).</summary>
+    /// <summary>
+    /// Adds a picture that shows the current track's album art (nothing while the track has none).
+    /// </summary>
     public EditElement AddAlbumArt()
     {
         var area = ScreenSizes.Bounds(_target);
@@ -274,7 +293,9 @@ public sealed class PageEditModel
         _elements.Remove(element);
     }
 
-    /// <summary>Moves an element in the drawing order (positive = towards the front), stopping at either end.</summary>
+    /// <summary>
+    /// Moves an element in the drawing order (positive = towards the front), stopping at either end.
+    /// </summary>
     public void Move(EditElement element, int delta)
     {
         var index = _elements.IndexOf(element);
@@ -289,7 +310,9 @@ public sealed class PageEditModel
         else _elements[target - 1].Node.AddAfterSelf(element.Node);
     }
 
-    /// <summary>Sets position and size, moved and shrunk as needed to lie inside the area the bike shows.</summary>
+    /// <summary>
+    /// Sets position and size, moved and shrunk as needed to lie inside the area the bike shows.
+    /// </summary>
     public void SetBounds(EditElement element, float x, float y, float width, float height)
     {
         var b = ScreenSizes.Bounds(_target);

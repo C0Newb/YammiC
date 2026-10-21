@@ -55,7 +55,7 @@ public sealed class AndroidBluetoothConnectionManager : IYmcBluetoothConnectionM
 
     public int NegotiatedMtu { get; private set; } = 23;
 
-    public bool IsBluetoothEnabled => _adapter is { IsEnabled: true };
+    public bool IsBluetoothEnabled => _adapter != null && _adapter.IsEnabled;
 
     public int BondedDeviceCount => _adapter?.BondedDevices?.Count ?? 0;
 
@@ -213,7 +213,9 @@ public sealed class AndroidBluetoothConnectionManager : IYmcBluetoothConnectionM
         }
     }
 
-    /// <summary>Reads (and discards) any further framed messages the CCU sends on the OTA/SPP socket.</summary>
+    /// <summary>
+    /// Reads (and discards) any further framed messages the CCU sends on the OTA/SPP socket.
+    /// </summary>
     private void DrainSppSocket(BluetoothSocket socket, CancellationToken cancellationToken)
     {
         try

@@ -32,10 +32,14 @@ public class ScreenCanvas : Control
     private (float X, float Y, float W, float H) _dragStartRect;
     private int _resizeCorner;
 
-    /// <summary>The user picked (or deselected, with null) an element.</summary>
+    /// <summary>
+    /// The user picked (or deselected, with null) an element.
+    /// </summary>
     public event Action<EditElement?>? SelectionChanged;
 
-    /// <summary>The user dragged the selected element to this position and size (design space). The owner applies it, clamped.</summary>
+    /// <summary>
+    /// The user dragged the selected element to this position and size (design space). The owner applies it, clamped.
+    /// </summary>
     public event Action<EditElement, float, float, float, float>? BoundsDragged;
 
     public IReadOnlyList<EditElement>? Elements
@@ -59,7 +63,9 @@ public class ScreenCanvas : Control
         }
     }
 
-    /// <summary>The page rendered at design size; null until the first render finishes.</summary>
+    /// <summary>
+    /// The page rendered at design size; null until the first render finishes.
+    /// </summary>
     public Bitmap? Preview
     {
         get => _preview;

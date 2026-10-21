@@ -2,7 +2,9 @@ using System.Globalization;
 
 namespace CNCO.YccuSdk.Screens;
 
-/// <summary>Everything a page can show at one moment, as plain data (safe to hand between threads).</summary>
+/// <summary>
+/// Everything a page can show at one moment, as plain data (safe to hand between threads).
+/// </summary>
 public sealed record ScreenSnapshot(
     ScreenContext Context,
     string PageId,
@@ -21,14 +23,17 @@ public sealed record ScreenSnapshot(
     /// Changes whenever something a page could show changes. The clock only counts to the minute unless
     /// <paramref name="includeSeconds"/>; bike data is included as the text the pages would show (so "—" for stale values).
     /// </summary>
-    public string Signature(bool includeSeconds)
+    public string Signature(bool includeSeconds, TimeSpan? scrollStep = null)
     {
         var c = Context;
         var m = c.Media;
         var now = includeSeconds ? c.Now.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture) : c.Now.ToString("yyyyMMddHHmm", CultureInfo.InvariantCulture);
+
+        // Scrolling text moves with the clock, so while it shows the picture changes every step.
+        if (scrollStep != null && scrollStep.Value > TimeSpan.Zero && c.HasMusic) now += "." + c.Now.Ticks / scrollStep.Value.Ticks;
         var can = string.Join(',', ScreenVariables.CanVariableNames.Select(n => ScreenVariables.Resolve("{" + n + "}", c)));
         var flags = string.Join(',', Flags.OrderBy(f => f.Key).Select(f => $"{f.Key}={f.Value}"));
-        var art = c.AlbumArt is { Length: > 0 } picture ? ArtStamp(picture) : "-";
+        var art = c.AlbumArt != null && c.AlbumArt.Length > 0 ? ArtStamp(c.AlbumArt) : "-";
         var vars = string.Join(',', Vars.OrderBy(v => v.Key).Select(v => $"{v.Key}={v.Value}"));
         return $"{PageId}|{PageIndex}/{PageCount}|{now}|{(c.Night ? 'N' : 'D')}|" +
                $"{m?.SongName}|{m?.ArtistName}|{m?.AlbumName}|{m?.PlaybackState}|{m?.ElapsedSeconds}|{m?.DurationSeconds}|{can}|{flags}|{vars}|{art}";

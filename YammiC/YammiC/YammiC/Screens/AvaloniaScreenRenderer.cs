@@ -25,7 +25,9 @@ public sealed class AvaloniaScreenRenderer : IScreenRenderer
 
     public string? LastError { get; private set; }
 
-    /// <summary>False where code can't be generated at run time (iOS, browser): pages can't be loaded there.</summary>
+    /// <summary>
+    /// False where code can't be generated at run time (iOS, browser): pages can't be loaded there.
+    /// </summary>
     public static bool IsSupported => RuntimeFeature.IsDynamicCodeSupported;
 
     public async Task<SKBitmap?> RenderAsync(ScreenTarget target, ScreenPage page, ScreenSnapshot snapshot, int width, int height)
@@ -82,7 +84,9 @@ public sealed class AvaloniaScreenRenderer : IScreenRenderer
         return scaled;
     }
 
-    /// <summary>The loaded control for <paramref name="page"/> (re-loaded only when the page or its XAML changed); null with <see cref="LastError"/> set if it won't load.</summary>
+    /// <summary>
+    /// The loaded control for <paramref name="page"/> (re-loaded only when the page or its XAML changed); null with <see cref="LastError"/> set if it won't load.
+    /// </summary>
     private Control? RootFor(ScreenTarget target, ScreenPage page)
     {
         var key = page.Id + "|" + page.Xaml.GetHashCode();

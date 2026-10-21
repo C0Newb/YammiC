@@ -3,15 +3,30 @@ using System.Text;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using CNCO.YccuSdk.Yrc;
 using YammiC.ViewModels;
 
 namespace YammiC.Views;
 
 public partial class RideModesView : ContentPage
 {
+    private RideModesViewModel? _vm;
+
     public RideModesView()
     {
         InitializeComponent();
+        DataContextChanged += (_, _) =>
+        {
+            if (_vm != null) _vm.EditRequested -= Edit;
+            _vm = DataContext as RideModesViewModel;
+            if (_vm != null) _vm.EditRequested += Edit;
+        };
+    }
+
+    private async void Edit(SavedRideMode item)
+    {
+        if (Navigation != null)
+            await Navigation.PushAsync(new RideModeEditorView { DataContext = new RideModeEditorViewModel(App.Controller.ProfileLibrary, item) });
     }
 
     private static readonly FilePickerFileType RideModesFileType = new("Ride modes")

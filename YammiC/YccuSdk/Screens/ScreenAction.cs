@@ -13,7 +13,9 @@ public enum ScreenActionKind
     Set,
 }
 
-/// <summary>What a button press does. Text forms: <c>NextPage</c>, <c>PreviousPage</c>, <c>GoTo:id</c>, <c>Media.PlayPause|Next|Previous</c>, <c>Toggle:flag</c>, <c>Set:name=value</c>, <c>None</c>.</summary>
+/// <summary>
+/// What a button press does. Text forms: <c>NextPage</c>, <c>PreviousPage</c>, <c>GoTo:id</c>, <c>Media.PlayPause|Next|Previous</c>, <c>Toggle:flag</c>, <c>Set:name=value</c>, <c>None</c>.
+/// </summary>
 public readonly record struct ScreenAction(ScreenActionKind Kind, string Arg = "", string Value = "")
 {
     public static bool TryParse(string? text, out ScreenAction action)

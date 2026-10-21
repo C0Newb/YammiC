@@ -1,6 +1,8 @@
 namespace CNCO.YccuSdk.Tracks;
 
-/// <summary>The saved tracks. One JSON file per track; a damaged file is skipped, not fatal.</summary>
+/// <summary>
+/// The saved tracks. One JSON file per track; a damaged file is skipped, not fatal.
+/// </summary>
 public sealed class TrackLibrary
 {
     public const string Folder = "tracks";
@@ -14,7 +16,9 @@ public sealed class TrackLibrary
         _utcNow = utcNow ?? (() => DateTime.UtcNow);
     }
 
-    /// <summary>Names of files that could not be read as tracks, from the last <see cref="List"/>.</summary>
+    /// <summary>
+    /// Names of files that could not be read as tracks, from the last <see cref="List"/>.
+    /// </summary>
     public IReadOnlyList<string> Skipped { get; private set; } = Array.Empty<string>();
 
     public IReadOnlyList<Track> List()
@@ -23,7 +27,8 @@ public sealed class TrackLibrary
         var skipped = new List<string>();
         foreach (var name in _files.List(Folder))
         {
-            var track = _files.Read(Folder, name) is { } text ? Track.FromJson(text) : null;
+            var text = _files.Read(Folder, name);
+            var track = text != null ? Track.FromJson(text) : null;
             if (track == null) skipped.Add(name);
             else tracks.Add(track);
         }
@@ -31,9 +36,15 @@ public sealed class TrackLibrary
         return tracks.OrderBy(t => t.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
     }
 
-    public Track? Get(string id) => _files.Read(Folder, FileName(id)) is { } text ? Track.FromJson(text) : null;
+    public Track? Get(string id)
+    {
+        var text = _files.Read(Folder, FileName(id));
+        return text != null ? Track.FromJson(text) : null;
+    }
 
-    /// <summary>Saves the track (giving it an id if it has none). Returns an error message, or null when saved.</summary>
+    /// <summary>
+    /// Saves the track (giving it an id if it has none). Returns an error message, or null when saved.
+    /// </summary>
     public string? Save(Track track)
     {
         var problem = track.Validate();
@@ -47,17 +58,21 @@ public sealed class TrackLibrary
 
     public void MarkUsed(string id)
     {
-        if (Get(id) is not { } track) return;
+        var track = Get(id);
+        if (track == null) return;
         track.LastUsed = _utcNow();
         Save(track);
     }
 
     public string Export(Track track) => track.ToJson();
 
-    /// <summary>Adds a track from exported text under a new id. Returns the track, or null when the text is not a valid track.</summary>
+    /// <summary>
+    /// Adds a track from exported text under a new id. Returns the track, or null when the text is not a valid track.
+    /// </summary>
     public Track? Import(string json)
     {
-        if (Track.FromJson(json) is not { } track) return null;
+        var track = Track.FromJson(json);
+        if (track == null) return null;
         track.Id = "";
         track.LastUsed = null;
         return Save(track) == null ? track : null;

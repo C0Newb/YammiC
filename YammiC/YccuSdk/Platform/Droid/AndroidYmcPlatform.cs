@@ -5,7 +5,9 @@ namespace CNCO.YccuSdk.Platform.Droid;
 
 public static class AndroidYmcPlatform
 {
-    /// <summary>Builds the Android <see cref="YmcPlatform"/>; credentials/device name are stored under the app's files dir.</summary>
+    /// <summary>
+    /// Builds the Android <see cref="YmcPlatform"/>; credentials/device name are stored under the app's files dir.
+    /// </summary>
     public static YmcPlatform Create(Context context)
     {
         var phone = new AndroidPhoneStatusProvider(context);

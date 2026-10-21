@@ -5,7 +5,9 @@ using CNCO.YccuSdk.Packets.App;
 
 namespace CNCO.YccuSdk.Tracks;
 
-/// <summary>The numbers of one lap message, in the units and ranges the bike takes.</summary>
+/// <summary>
+/// The numbers of one lap message, in the units and ranges the bike takes.
+/// </summary>
 public sealed record LapMessage(int LapNo, int LapTimeCs, int ReferenceCs, int[] GapsCs)
 {
     /// <summary>
@@ -17,7 +19,7 @@ public sealed record LapMessage(int LapNo, int LapTimeCs, int ReferenceCs, int[]
         var gaps = new int[4];
         for (var i = 0; i < gaps.Length; i++)
         {
-            gaps[i] = best != null && i < lap.SectorTimes.Count && i < best.SectorTimes.Count
+            gaps[i] = !lap.Valid ? AppSendLapSectorTime.GapInvalid : best != null && i < lap.SectorTimes.Count && i < best.SectorTimes.Count
                 ? Math.Clamp(Centiseconds(lap.SectorTimes[i]) - Centiseconds(best.SectorTimes[i]), -5999, 5999)
                 : AppSendLapSectorTime.GapNotMeasured;
         }
@@ -31,7 +33,9 @@ public sealed record LapMessage(int LapNo, int LapTimeCs, int ReferenceCs, int[]
     private static int Centiseconds(TimeSpan t) => (int)(t.TotalMilliseconds / 10);
 }
 
-/// <summary>Sends finished laps to the bike with the existing lap-time message.</summary>
+/// <summary>
+/// Sends finished laps to the bike with the existing lap-time message.
+/// </summary>
 public sealed class BikeLapSender : ILapSender
 {
     private readonly YmcConnectionBroker _broker;
@@ -45,7 +49,8 @@ public sealed class BikeLapSender : ILapSender
 
     public async Task SendAsync(LapCompleted lap, LapCompleted? best)
     {
-        if (!_broker.IsBikeConnected || _broker.MessageBroker is not { } mb)
+        var mb = _broker.MessageBroker;
+        if (!_broker.IsBikeConnected || mb == null)
         {
             _log.Info($"Lap {lap.Lap} not sent: bike not connected");
             return;
@@ -62,14 +67,18 @@ public sealed class BikeLapSender : ILapSender
     }
 }
 
-/// <summary>What the Track Timer needs from the bike side. <see cref="BikeServiceTrackLink"/> is the real one; <see cref="NoBikeLink"/> is for platforms without a bike.</summary>
+/// <summary>
+/// What the Track Timer needs from the bike side. <see cref="BikeServiceTrackLink"/> is the real one; <see cref="NoBikeLink"/> is for platforms without a bike.
+/// </summary>
 public interface ITrackBikeLink
 {
     IReadOnlyList<CanRawReading> RawCan();
 
     CanValues CanValues();
 
-    /// <summary>Raised when new CAN data arrived.</summary>
+    /// <summary>
+    /// Raised when new CAN data arrived.
+    /// </summary>
     event Action? CanUpdated;
 
     void SetRequiredCanIds(IEnumerable<int> ids);
@@ -133,7 +142,9 @@ public sealed class NoBikeLink : ITrackBikeLink, ILapSender
     public Task SendAsync(LapCompleted lap, LapCompleted? best) => Task.CompletedTask;
 }
 
-/// <summary>Shows the track name on the board and keeps the custom screen off it while a session is on.</summary>
+/// <summary>
+/// Shows the track name on the board and keeps the custom screen off it while a session is on.
+/// </summary>
 public sealed class LinkBoardSender : IBoardMessageSender
 {
     private readonly ITrackBikeLink _link;

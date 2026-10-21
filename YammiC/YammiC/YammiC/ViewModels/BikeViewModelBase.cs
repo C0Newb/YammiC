@@ -17,14 +17,18 @@ public abstract class BikeViewModelBase : ViewModelBase
         Controller = controller;
     }
 
-    /// <summary>Applies the current snapshot and starts following changes. Call at the end of the derived constructor.</summary>
+    /// <summary>
+    /// Applies the current snapshot and starts following changes. Call at the end of the derived constructor.
+    /// </summary>
     protected void Attach()
     {
         OnSnapshot(Controller.Snapshot);
         Controller.Changed += HandleChanged;
     }
 
-    /// <summary>Stops following the controller (call when the page goes away).</summary>
+    /// <summary>
+    /// Stops following the controller (call when the page goes away).
+    /// </summary>
     public virtual void Detach() => Controller.Changed -= HandleChanged;
 
     private void HandleChanged() => Dispatcher.UIThread.Post(() => OnSnapshot(Controller.Snapshot));

@@ -12,7 +12,9 @@ public static class NaviLiteAuth
     private const int Obfuscation = 0x0a;
     private const int NonceLen = 4;
 
-    /// <summary>The SEC_DATA_ACK payload = the de-obfuscated 4-byte nonce (last 4 bytes XOR 0x0a).</summary>
+    /// <summary>
+    /// The SEC_DATA_ACK payload = the de-obfuscated 4-byte nonce (last 4 bytes XOR 0x0a).
+    /// </summary>
     public static byte[] SecDataAckPayload(byte[] secDataPayload)
     {
         var nonce = new byte[NonceLen];
@@ -23,7 +25,9 @@ public static class NaviLiteAuth
         return nonce;
     }
 
-    /// <summary>The CCU part number the bike announces (de-obfuscated string before the nonce).</summary>
+    /// <summary>
+    /// The CCU part number the bike announces (de-obfuscated string before the nonce).
+    /// </summary>
     public static string PartNumber(byte[] secDataPayload)
     {
         var partNumberLength = secDataPayload.Length - NonceLen;

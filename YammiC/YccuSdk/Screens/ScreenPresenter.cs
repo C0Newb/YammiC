@@ -22,6 +22,9 @@ public sealed class ScreenPresenter
     private readonly Func<int> _quality;
     private readonly Func<bool>? _wantsFastTick;
     private readonly Func<TimeSpan> _fastTick;
+    private readonly Func<TimeSpan>? _scrollStep;
+    private readonly Action<ScreenSnapshot>? _observe;
+    private readonly TimeSpan _retryInterval;
     private readonly Logger _log;
     private readonly SemaphoreSlim _busy = new(1, 1);
     private readonly object _gate = new();
@@ -29,6 +32,7 @@ public sealed class ScreenPresenter
     private CancellationTokenSource? _loop;
     private string? _lastSignature;
     private DateTime _lastAttempt = DateTime.MinValue;
+    private bool _lastFailed;
 
     /// <param name="name">For the log.</param>
     /// <param name="target">Which display this is (sets the design size the pages are drawn at).</param>
@@ -41,6 +45,9 @@ public sealed class ScreenPresenter
     /// <param name="tick">How often to check for changes.</param>
     /// <param name="minInterval">Never send more often than this.</param>
     /// <param name="wantsFastTick">When it returns true (e.g. the layout shows live bike data) the loop checks every <c>fastTick</c> instead of <c>tick</c>.</param>
+    /// <param name="scrollStep">How often a page with scrolling text is redrawn while music shows (null: no scrolling redraws).</param>
+    /// <param name="observe">Called with the current data on every tick, even while nothing can be sent (used for text that goes to the bike separately, such as the road name).</param>
+    /// <param name="retryInterval">How long to wait before trying again after a send failed or could not be drawn (default: <c>minInterval</c>); a bike that refuses a picture is not asked again at full speed.</param>
     public ScreenPresenter(
         string name,
         ScreenTarget target,
@@ -55,10 +62,16 @@ public sealed class ScreenPresenter
         Func<int> quality,
         Logger logger,
         Func<bool>? wantsFastTick = null,
-        Func<TimeSpan>? fastTick = null)
+        Func<TimeSpan>? fastTick = null,
+        Func<TimeSpan>? scrollStep = null,
+        Action<ScreenSnapshot>? observe = null,
+        TimeSpan? retryInterval = null)
     {
         _wantsFastTick = wantsFastTick;
         _fastTick = fastTick ?? tick;
+        _scrollStep = scrollStep;
+        _observe = observe;
+        _retryInterval = retryInterval ?? minInterval;
         _target = target;
         _renderer = renderer;
         _page = page;
@@ -80,7 +93,9 @@ public sealed class ScreenPresenter
         }
     }
 
-    /// <summary>Starts (or restarts) the loop and draws immediately.</summary>
+    /// <summary>
+    /// Starts (or restarts) the loop and draws immediately.
+    /// </summary>
     public void Start()
     {
         Stop();
@@ -90,6 +105,7 @@ public sealed class ScreenPresenter
             _loop = cancellation;
             _lastSignature = null;
             _lastAttempt = DateTime.MinValue;
+            _lastFailed = false;
         }
         Refresh();
         var token = cancellation.Token;
@@ -110,6 +126,19 @@ public sealed class ScreenPresenter
         });
     }
 
+    private void Observe()
+    {
+        if (_observe == null) return;
+        try
+        {
+            _observe(_snapshot());
+        }
+        catch (Exception t)
+        {
+            _log.Debug($"observe failed: {t.Message}");
+        }
+    }
+
     private TimeSpan NextDelay()
     {
         var tick = _tick();
@@ -128,19 +157,39 @@ public sealed class ScreenPresenter
         loop?.Cancel();
     }
 
-    /// <summary>Forgets what was last sent so the screen is redrawn (e.g. after its layout was edited).</summary>
+    /// <summary>
+    /// Tries to send again right away, ignoring any wait left after an earlier failure (e.g. the display just became able to show it).
+    /// </summary>
+    public void RetryNow()
+    {
+        lock (_gate)
+        {
+            _lastSignature = null;
+            _lastAttempt = DateTime.MinValue;
+            _lastFailed = false;
+        }
+        Refresh();
+    }
+
+    /// <summary>
+    /// Forgets what was last sent so the screen is redrawn (e.g. after its layout was edited).
+    /// </summary>
     public void Invalidate()
     {
         lock (_gate) _lastSignature = null;
         Refresh();
     }
 
-    /// <summary>Checks now instead of waiting for the next tick.</summary>
+    /// <summary>
+    /// Checks now instead of waiting for the next tick.
+    /// </summary>
     public void Refresh() => _ = RefreshAsync();
 
     private async Task RefreshAsync()
     {
-        if (!IsRunning || !_canSend()) return;
+        if (!IsRunning) return;
+        Observe();
+        if (!_canSend()) return;
         if (_renderer == null)
         {
             LogOnce("there is no screen renderer on this platform");
@@ -152,12 +201,12 @@ public sealed class ScreenPresenter
             var page = _page();
             var snapshot = _snapshot();
             var (width, height) = _size();
-            var signature = $"{width}x{height}|{page.Id}|{page.Xaml.GetHashCode()}|{snapshot.Signature(page.UsesSeconds)}";
+            var signature = $"{width}x{height}|{page.Id}|{page.Xaml.GetHashCode()}|{snapshot.Signature(page.UsesSeconds, page.UsesScroll ? _scrollStep?.Invoke() : null)}";
 
             lock (_gate)
             {
                 if (signature == _lastSignature) return;
-                if (DateTime.UtcNow - _lastAttempt < _minInterval) return;
+                if (DateTime.UtcNow - _lastAttempt < (_lastFailed ? _retryInterval : _minInterval)) return;
                 _lastAttempt = DateTime.UtcNow;
             }
 
@@ -166,12 +215,17 @@ public sealed class ScreenPresenter
             {
                 // Keep showing the last good picture; don't retry until the page or the data changes.
                 LogOnce($"page \"{page.Id}\" can't be drawn: {_renderer.LastError}");
-                lock (_gate) _lastSignature = signature;
+                lock (_gate)
+                {
+                    _lastSignature = signature;
+                    _lastFailed = true;
+                }
                 return;
             }
 
             var jpeg = YmcImaging.EncodeJpeg(bitmap, _quality());
             var sent = await _send(jpeg).ConfigureAwait(false);
+            lock (_gate) _lastFailed = !sent;
             if (sent)
             {
                 lock (_gate) _lastSignature = signature;

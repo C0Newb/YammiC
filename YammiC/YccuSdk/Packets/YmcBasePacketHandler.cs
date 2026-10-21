@@ -10,6 +10,8 @@ public class YmcBasePacketHandler : IYmcPacketHandler
     private readonly Logger _log;
     private int _requestIdCounter = 1;
     private readonly SemaphoreSlim _ddtMutex = new(1, 1);
+    private readonly SemaphoreSlim _ddtV3Mutex = new(1, 1);
+    private ushort _v3Sequence;
 
     public YmcBasePacketHandler(Logger logger)
     {
@@ -24,6 +26,7 @@ public class YmcBasePacketHandler : IYmcPacketHandler
         {
             AppOutgoingPacket.Transport.Simple => SendSimpleCommandAsync(connectionContext, request),
             AppOutgoingPacket.Transport.Ddt => SendDdtCommandAsync(connectionContext, request),
+            AppOutgoingPacket.Transport.DdtV3 => SendDdtV3CommandAsync(connectionContext, request),
             AppOutgoingPacket.Transport.Spp => SendSppCommandAsync(connectionContext, request),
             _ => throw new ArgumentOutOfRangeException(nameof(request)),
         }).ConfigureAwait(false);
@@ -44,6 +47,41 @@ public class YmcBasePacketHandler : IYmcPacketHandler
         {
             _log.Debug($"sendSppCommand[{label}]: no live SPP socket, dropped");
         }
+    }
+
+    /// <summary>
+    /// Sends a command as DDT v3 packets to <see cref="YmcBikeProtocol.DdtV3WriteUuid"/>: each packet is written after the previous
+    /// write completed. This is a separate slot from the control/data DDT session, so it has its own lock (like the reference SDK).
+    /// </summary>
+    private async Task SendDdtV3CommandAsync(YmcConnectionContext connectionContext, AppOutgoingPacket request)
+    {
+        if (!connectionContext.HasCharacteristic(YmcBikeProtocol.DdtV3WriteUuid))
+            throw new InvalidOperationException("DDT v3 write characteristic not found");
+
+        await _ddtV3Mutex.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            var requestId = NextRequestId();
+            var body = request.Serialize(requestId);
+            var sequence = NextV3Sequence();
+            var packets = YmcBikeProtocol.DdtV3WritePackets(sequence, body, connectionContext.NegotiatedMtu);
+            _log.Debug(
+                $"sendDdtV3Request: cmd={(body[0] << 8) | body[1]}, reqId={requestId}, seq={sequence}, {body.Length} bytes in {packets.Count} packet(s), body:\n{body.ToHexPreview()}");
+            foreach (var packet in packets)
+                await connectionContext.WriteAsync(YmcBikeProtocol.DdtV3WriteUuid, packet).ConfigureAwait(false);
+        }
+        finally
+        {
+            _ddtV3Mutex.Release();
+        }
+    }
+
+    // Counts up from 1 and skips 0 when it wraps (0 is not used by the bike).
+    private ushort NextV3Sequence()
+    {
+        _v3Sequence = (ushort)(_v3Sequence + 1);
+        if (_v3Sequence == 0) _v3Sequence = 1;
+        return _v3Sequence;
     }
 
     private byte NextRequestId()
@@ -116,7 +154,7 @@ public class YmcBasePacketHandler : IYmcPacketHandler
             if (connectionContext.HasCharacteristic(YmcBikeProtocol.StatusUuid))
             {
                 var statusValue = await connectionContext.ReadAsync(YmcBikeProtocol.StatusUuid).ConfigureAwait(false);
-                if (statusValue is { Length: > 0 } && statusValue[0] != 0)
+                if (statusValue != null && statusValue.Length > 0 && statusValue[0] != 0)
                 {
                     _log.Debug($"sendDdtRequest: channel busy status={statusValue.ToHexString()}, aborting");
                     return;

@@ -31,7 +31,9 @@ public class YmcVirtualPitBoardController
         _log = logger.Section("VirtualPitBoard");
     }
 
-    /// <summary>Registers the CCU-side handlers this controller needs. Call once per connection.</summary>
+    /// <summary>
+    /// Registers the CCU-side handlers this controller needs. Call once per connection.
+    /// </summary>
     public void RegisterHandlers(YmcMessageHandler messageHandler)
     {
         messageHandler.Register(
@@ -162,7 +164,9 @@ public class YmcVirtualPitBoardController
         }
     }
 
-    /// <summary>Clears the Virtual Pit Board display. Returns true on `ClearVirtualPitBoardResponseOk`.</summary>
+    /// <summary>
+    /// Clears the Virtual Pit Board display. Returns true on `ClearVirtualPitBoardResponseOk`.
+    /// </summary>
     public async Task<bool> ClearAsync(IYmcPacketHandler packetHandler, YmcConnectionContext connectionContext)
     {
         var clear = NewDeferred<bool>();

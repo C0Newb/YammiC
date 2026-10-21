@@ -1,17 +1,56 @@
 using System;
-using System.IO;
-using System.Threading.Tasks;
-using Avalonia.Media.Imaging;
-using Avalonia.Platform;
+using System.Globalization;
+using Avalonia.Media;
+using Avalonia.Threading;
+using CNCO.YccuSdk.Can;
+using CNCO.YccuSdk.Tracks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using YammiC.Services;
 
 namespace YammiC.ViewModels;
 
+/// <summary>
+/// The home page: connection, live bike data, the track timer, what the bike's displays show and what is playing.
+/// </summary>
 public partial class DashboardViewModel : BikeViewModelBase
 {
+    private const string Dash = "—";
+
+    private static readonly IBrush Connected = new SolidColorBrush(Color.FromRgb(0x2E, 0xA0, 0x43));
+    private static readonly IBrush Connecting = new SolidColorBrush(Color.FromRgb(0xE0, 0x8A, 0x1E));
+    private static readonly IBrush Offline = new SolidColorBrush(Color.FromRgb(0x8A, 0x8F, 0x98));
+
+    private readonly TrackTimerService _tracks;
     private bool _applying;
+
+    public DashboardViewModel(IBikeController controller, TrackTimerService tracks) : base(controller)
+    {
+        _tracks = tracks;
+        Attach();
+        Controller.CanChanged += HandleCanChanged;
+        _tracks.Changed += HandleTrackChanged;
+        RefreshLive();
+        RefreshTimer();
+    }
+
+    public DashboardViewModel(IBikeController controller) : this(controller, App.TrackTimer)
+    {
+    }
+
+    // Design-time constructor.
+    public DashboardViewModel() : this(new FakeBikeController())
+    {
+    }
+
+    public override void Detach()
+    {
+        base.Detach();
+        Controller.CanChanged -= HandleCanChanged;
+        _tracks.Changed -= HandleTrackChanged;
+    }
+
+    // -- Connection ------------------------------------------------------
 
     [ObservableProperty]
     public partial bool NeedsNotificationAccess { get; set; }
@@ -20,13 +59,10 @@ public partial class DashboardViewModel : BikeViewModelBase
     public partial string BikeName { get; set; } = "";
 
     [ObservableProperty]
-    public partial string BleNameText { get; set; } = "";
-
-    [ObservableProperty]
     public partial string StatusText { get; set; } = "";
 
     [ObservableProperty]
-    public partial string OdometerText { get; set; } = "Odometer: --";
+    public partial IBrush StatusBrush { get; set; } = Offline;
 
     [ObservableProperty]
     public partial string LastError { get; set; } = "";
@@ -40,6 +76,48 @@ public partial class DashboardViewModel : BikeViewModelBase
     [ObservableProperty]
     public partial bool CanDisconnect { get; set; }
 
+    // -- Live bike data --------------------------------------------------
+
+    [ObservableProperty]
+    public partial string GearText { get; set; } = Dash;
+
+    [ObservableProperty]
+    public partial string RpmText { get; set; } = Dash;
+
+    [ObservableProperty]
+    public partial string WaterTempText { get; set; } = Dash;
+
+    [ObservableProperty]
+    public partial string IntakeTempText { get; set; } = Dash;
+
+    [ObservableProperty]
+    public partial string LiveHint { get; set; } = "";
+
+    // -- Track timer -----------------------------------------------------
+
+    [ObservableProperty]
+    public partial string TimerStateText { get; set; } = "";
+
+    [ObservableProperty]
+    public partial string TimerTrackText { get; set; } = "";
+
+    [ObservableProperty]
+    public partial string TimerBestText { get; set; } = "";
+
+    [ObservableProperty]
+    public partial IBrush TimerBrush { get; set; } = Offline;
+
+    // -- Bike displays and media -----------------------------------------
+
+    [ObservableProperty]
+    public partial bool VpbEnabled { get; set; } = true;
+
+    [ObservableProperty]
+    public partial string VpbStatus { get; set; } = "";
+
+    [ObservableProperty]
+    public partial string NavigationStatus { get; set; } = "";
+
     [ObservableProperty]
     public partial string MediaTrack { get; set; } = "Nothing playing";
 
@@ -49,43 +127,6 @@ public partial class DashboardViewModel : BikeViewModelBase
     [ObservableProperty]
     public partial string MediaState { get; set; } = "";
 
-    [ObservableProperty]
-    public partial bool VpbEnabled { get; set; } = true;
-
-    [ObservableProperty]
-    public partial string VpbStatus { get; set; } = "";
-
-    [ObservableProperty]
-    public partial Bitmap? VpbImagePreview { get; set; }
-
-    [ObservableProperty]
-    public partial string VpbImageName { get; set; } = "";
-
-    [ObservableProperty]
-    public partial string VpbImageStatus { get; set; } = "";
-
-    [ObservableProperty]
-    public partial bool IsSendingVpbImage { get; set; }
-
-    [ObservableProperty]
-    public partial string NavigationStatus { get; set; } = "";
-
-    // The image that "Send image" pushes to the Virtual Pit Board, as picked/loaded (any format Skia can decode).
-    private byte[]? _vpbImageData;
-
-    private const string DefaultVpbImageName = "sandwich.jpg";
-
-    public DashboardViewModel(IBikeController controller) : base(controller)
-    {
-        UseDefaultVpbImage();
-        Attach();
-    }
-
-    // Design-time constructor.
-    public DashboardViewModel() : this(new FakeBikeController())
-    {
-    }
-
     protected override void OnSnapshot(BikeSnapshot snapshot)
     {
         _applying = true;
@@ -93,29 +134,40 @@ public partial class DashboardViewModel : BikeViewModelBase
         {
             var c = snapshot.Connection;
             NeedsNotificationAccess = Controller.NeedsNotificationAccess;
-            BikeName = c.DeviceName;
-            BleNameText = $"BLE name: {c.DeviceName}";
-            StatusText = $"Status: {c.ConnectionLabel}";
+            BikeName = string.IsNullOrWhiteSpace(c.DeviceName) ? "No bike set up" : c.DeviceName;
             LastError = c.LastError;
             HasError = !string.IsNullOrWhiteSpace(c.LastError);
 
             var button = c.GetConnectButtonState();
             CanConnect = Controller.CanConnect && button == ConnectButtonState.Idle;
             CanDisconnect = button == ConnectButtonState.Connected;
+            StatusText = button switch
+            {
+                ConnectButtonState.Connected => "Connected",
+                ConnectButtonState.Connecting => string.IsNullOrWhiteSpace(c.ConnectionLabel) ? "Connecting..." : c.ConnectionLabel,
+                _ => "Not connected",
+            };
+            StatusBrush = button switch
+            {
+                ConnectButtonState.Connected => Connected,
+                ConnectButtonState.Connecting => Connecting,
+                _ => Offline,
+            };
 
             var media = snapshot.Media;
             MediaTrack = string.IsNullOrWhiteSpace(media?.SongName) ? "Nothing playing" : media!.SongName;
             MediaArtist = media?.ArtistName ?? "";
-            MediaState = media?.PlaybackState.ToString() ?? "";
+            MediaState = media == null ? "" : media.PlaybackState.ToString();
 
             VpbEnabled = snapshot.VpbEnabled;
-            VpbStatus = $"Displaying: {snapshot.VpbStatus}";
+            VpbStatus = snapshot.VpbStatus;
             NavigationStatus = NavigationStateFormatter.Describe(snapshot.Navigation);
         }
         finally
         {
             _applying = false;
         }
+        RefreshLive();
     }
 
     partial void OnVpbEnabledChanged(bool value)
@@ -123,81 +175,48 @@ public partial class DashboardViewModel : BikeViewModelBase
         if (!_applying) Controller.SetVpbEnabled(value);
     }
 
-    /// <summary>Selects a user-picked image to send (called by the view after its file picker returns).</summary>
-    public void SetVpbImage(byte[] data, string name)
+    private void HandleCanChanged() => Dispatcher.UIThread.Post(RefreshLive);
+
+    private void HandleTrackChanged() => Dispatcher.UIThread.Post(RefreshTimer);
+
+    private void RefreshLive()
     {
-        try
-        {
-            using var stream = new MemoryStream(data);
-            VpbImagePreview = new Bitmap(stream);
-            _vpbImageData = data;
-            VpbImageName = name;
-            VpbImageStatus = "";
-        }
-        catch (Exception e)
-        {
-            VpbImageStatus = $"Can't use that image: {e.Message}";
-        }
+        var v = Controller.CanValues;
+        GearText = CanSignals.GearText(v.Gear);
+        RpmText = Num(v.Rpm, "0");
+        WaterTempText = Num(v.WaterTempC, "0", " °C");
+        IntakeTempText = Num(v.IntakeAirTempC, "0", " °C");
+
+        LiveHint = !Controller.CanDataEnabled
+            ? "Bike data is off. Turn it on in Bike Telemetry to see live values."
+            : Controller.CanRaw.Count == 0
+                ? "Waiting for the bike..."
+                : "";
     }
 
-    /// <summary>Goes back to the bundled sandwich.</summary>
-    [RelayCommand]
-    private void UseDefaultVpbImage()
+    private void RefreshTimer()
     {
-        try
+        var timer = _tracks.Timer;
+        var track = timer.SelectedTrackId != null ? _tracks.Library.Get(timer.SelectedTrackId) : null;
+        TimerStateText = timer.State switch
         {
-            using var asset = AssetLoader.Open(new Uri($"avares://YammiC/Assets/{DefaultVpbImageName}"));
-            using var memory = new MemoryStream();
-            asset.CopyTo(memory);
-            SetVpbImage(memory.ToArray(), DefaultVpbImageName);
-        }
-        catch (Exception e)
+            TimerState.Ready => "Armed",
+            TimerState.Timing => timer.CurrentLap > 0 ? $"Timing, lap {timer.CurrentLap}" : "Timing",
+            _ => _tracks.Enabled ? "Waiting for the bike" : "Off",
+        };
+        TimerBrush = timer.State switch
         {
-            // Not fatal (e.g. design-time previewer without the resource).
-            VpbImageStatus = $"Default image unavailable: {e.Message}";
-        }
+            TimerState.Idle => Offline,
+            TimerState.Ready => Connecting,
+            _ => Connected,
+        };
+        TimerTrackText = track?.Name ?? "No track selected";
+        var best = timer.BestLap;
+        TimerBestText = best != null ? $"Best lap {best.Lap}: {TrackTimerViewModel.Format(best.Time)}" : "";
     }
 
-    [RelayCommand]
-    private async Task SendVpbImage()
-    {
-        if (_vpbImageData == null || IsSendingVpbImage) return;
-        IsSendingVpbImage = true;
-        VpbImageStatus = "Sending...";
-        try
-        {
-            VpbImageStatus = await Controller.SendVpbImageAsync(_vpbImageData)
-                ? "Sent"
-                : "Not sent (is the bike connected and VPB enabled?)";
-        }
-        catch (Exception e)
-        {
-            VpbImageStatus = $"Failed: {e.Message}";
-        }
-        finally
-        {
-            IsSendingVpbImage = false;
-        }
-    }
-
-    [RelayCommand]
-    private async Task ClearVpbImage()
-    {
-        if (IsSendingVpbImage) return;
-        IsSendingVpbImage = true;
-        try
-        {
-            VpbImageStatus = await Controller.ClearVpbAsync() ? "Cleared" : "Couldn't clear (is the bike connected?)";
-        }
-        catch (Exception e)
-        {
-            VpbImageStatus = $"Failed: {e.Message}";
-        }
-        finally
-        {
-            IsSendingVpbImage = false;
-        }
-    }
+    private static string Num(double? value, string format, string unit = "") =>
+        value != null ? value.Value.ToString(format, CultureInfo.CurrentCulture) + unit : Dash;
 
     [RelayCommand]
     private void Connect() => Controller.Connect();

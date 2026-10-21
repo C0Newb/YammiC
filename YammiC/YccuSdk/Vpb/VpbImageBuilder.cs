@@ -67,7 +67,9 @@ public static class VpbImageBuilder
         return YmcImaging.EncodeJpeg(scaled, jpegQuality);
     }
 
-    /// <summary>Decodes any supported image format (PNG, JPEG, ...) and converts it like <see cref="FromBitmap(SKBitmap, int)"/>.</summary>
+    /// <summary>
+    /// Decodes any supported image format (PNG, JPEG, ...) and converts it like <see cref="FromBitmap(SKBitmap, int)"/>.
+    /// </summary>
     public static byte[]? FromEncodedImage(byte[] encodedImage, int jpegQuality = 100)
     {
         using var bitmap = SKBitmap.Decode(encodedImage);

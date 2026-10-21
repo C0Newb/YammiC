@@ -1,6 +1,8 @@
 namespace CNCO.YccuSdk.Tracks;
 
-/// <summary>Slippy-map (OpenStreetMap style) tile maths: 256-pixel tiles, the whole world is 256 * 2^zoom pixels wide.</summary>
+/// <summary>
+/// Slippy-map (OpenStreetMap style) tile maths: 256-pixel tiles, the whole world is 256 * 2^zoom pixels wide.
+/// </summary>
 public static class WebMercator
 {
     public const int TileSize = 256;
@@ -8,7 +10,9 @@ public static class WebMercator
 
     public static double WorldSize(double zoom) => TileSize * Math.Pow(2, zoom);
 
-    /// <summary>World pixel position of a point at the given zoom (origin top-left of the world).</summary>
+    /// <summary>
+    /// World pixel position of a point at the given zoom (origin top-left of the world).
+    /// </summary>
     public static (double X, double Y) ToPixel(GeoPoint p, double zoom)
     {
         var size = WorldSize(zoom);

@@ -152,6 +152,14 @@ public class FakeBikeController : IBikeController
         return true;
     }
 
+    public bool SendTurnGuidance(CNCO.YccuSdk.Navigation.Protocol.TurnGuidance turn)
+    {
+        Log($"Turn guidance (simulated): {turn.Describe()}");
+        return true;
+    }
+
+    public bool ClearTurnGuidance() => true;
+
     public async Task<bool> ClearVpbAsync()
     {
         await Task.Delay(200);

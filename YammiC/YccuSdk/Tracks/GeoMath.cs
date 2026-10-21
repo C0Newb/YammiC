@@ -2,7 +2,9 @@ namespace CNCO.YccuSdk.Tracks;
 
 public readonly record struct GeoPoint(double Lat, double Lon);
 
-/// <summary>Where a movement segment crossed a line: <see cref="T"/> is the fraction along the movement, <see cref="Side"/> is +1/-1 for the side it came from.</summary>
+/// <summary>
+/// Where a movement segment crossed a line: <see cref="T"/> is the fraction along the movement, <see cref="Side"/> is +1/-1 for the side it came from.
+/// </summary>
 public readonly record struct Crossing(double T, int Side);
 
 public static class GeoMath
@@ -17,7 +19,9 @@ public static class GeoMath
 
     public static GeoPoint Midpoint(GeoPoint a, GeoPoint b) => new((a.Lat + b.Lat) / 2, (a.Lon + b.Lon) / 2);
 
-    /// <summary>Metres east and north of <paramref name="origin"/> (flat approximation, fine over a track).</summary>
+    /// <summary>
+    /// Metres east and north of <paramref name="origin"/> (flat approximation, fine over a track).
+    /// </summary>
     public static (double X, double Y) Project(GeoPoint p, GeoPoint origin)
     {
         var rad = Math.PI / 180.0;

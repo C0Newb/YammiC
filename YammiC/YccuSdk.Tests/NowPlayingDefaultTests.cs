@@ -39,11 +39,38 @@ public class NowPlayingDefaultTests
         Assert.True(bar.Y > 180);
 
         var templates = m.Elements.Where(e => e.Kind == EditKind.Text).Select(e => e.Template).ToList();
-        Assert.Contains("{song}", templates);
         Assert.Contains("{artist}", templates);
         Assert.Contains("{album}", templates);
         Assert.DoesNotContain("{time}", templates);
-        Assert.All(m.Elements.Where(e => e.Kind == EditKind.Text && e.Template is "{song}" or "{artist}" or "{album}"), e => Assert.True(e.X < art.X));
+        Assert.All(m.Elements.Where(e => e.Kind == EditKind.Text && e.Template is "{artist}" or "{album}"), e => Assert.True(e.X < art.X));
+    }
+
+    [Fact]
+    public void TheTitleGoesInTheRoadName_NotInThePicture()
+    {
+        var doc = Nav();
+        Assert.Equal("{song}", doc.DefaultRoadName);
+        var m = new PageEditModel(ScreenTarget.Navigation, doc.Pages[0].Xaml);
+        Assert.DoesNotContain("{song}", m.Elements.Where(e => e.Kind == EditKind.Text).Select(e => e.Template));
+        Assert.Equal("{song}", ScreenDocument.Parse(doc.ToAxaml()).DefaultRoadName);
+    }
+
+    [Fact]
+    public void ArtistAndAlbumWrap_SoLongNamesStayReadable()
+    {
+        var xaml = Nav().Pages[0].Xaml;
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(xaml, "Overflow=\"Wrap\"").Count);
+        Assert.False(Nav().Pages[0].UsesScroll);   // scrolling is opt-in: it redraws several times a second
+    }
+
+    [Fact]
+    public void TheArtSitsAboveTheProgressBar_WithRoomBetween()
+    {
+        var m = new PageEditModel(ScreenTarget.Navigation, Nav().Pages[0].Xaml);
+        var art = Assert.Single(m.Elements, e => e.Kind == EditKind.Image);
+        var bar = Assert.Single(m.Elements, e => e.Kind == EditKind.Progress);
+        Assert.True(bar.Y - (art.Y + art.Height) >= 8, "at least 8 px between the art and the progress bar");
+        Assert.True(art.Y >= 8, "and still off the top edge");
     }
 
     [Fact]

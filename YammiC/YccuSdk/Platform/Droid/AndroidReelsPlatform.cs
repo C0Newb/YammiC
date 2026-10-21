@@ -197,7 +197,9 @@ public sealed class AndroidReelsPlatform : IReelsPlatform
 #pragma warning restore CA1422
     }
 
-    /// <summary>One playing video: a loop that fetches the picture at the player's position and passes it on.</summary>
+    /// <summary>
+    /// One playing video: a loop that fetches the picture at the player's position and passes it on.
+    /// </summary>
     private sealed class Playback
     {
         private readonly MediaMetadataRetriever _retriever;

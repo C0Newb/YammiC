@@ -16,7 +16,9 @@ using CNCO.YccuSdk.Logging;
 [SuppressUiLog(YmcCommandCode.SendVirtualPitBoardGraphic)]
 public class AppSendVirtualPitBoardGraphic : AppOutgoingRequest
 {
-    /// <summary>Matches the reference SDK's `FileDataController.splitSize`.</summary>
+    /// <summary>
+    /// Matches the reference SDK's `FileDataController.splitSize`.
+    /// </summary>
     public const int ChunkSize = 6144;
 
     private readonly int _contentId;

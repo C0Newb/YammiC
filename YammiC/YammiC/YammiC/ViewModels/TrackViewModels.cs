@@ -13,7 +13,9 @@ using YammiC.Controls;
 
 namespace YammiC.ViewModels;
 
-/// <summary>Base for the Track pages: follows the Track Timer service and refreshes on the UI thread.</summary>
+/// <summary>
+/// Base for the Track pages: follows the Track Timer service and refreshes on the UI thread.
+/// </summary>
 public abstract class TrackViewModelBase : ViewModelBase
 {
     protected TrackTimerService Service { get; }
@@ -35,7 +37,9 @@ public abstract class TrackViewModelBase : ViewModelBase
 
     protected abstract void Refresh();
 
-    /// <summary>False while a session is on: nothing that changes a session's set-up may be touched.</summary>
+    /// <summary>
+    /// False while a session is on: nothing that changes a session's set-up may be touched.
+    /// </summary>
     public bool IsUnlocked => !Service.Timer.IsLocked;
 }
 
@@ -48,7 +52,7 @@ public partial class TrackRow : ObservableObject
         Track = track;
         Title = track.Name;
         Detail = $"{track.SectorCount} sector{(track.SectorCount == 1 ? "" : "s")}" +
-                 (track.LastUsed is { } used ? $" · last used {used.ToLocalTime():d MMM yyyy}" : "");
+                 (track.LastUsed != null ? $" · last used {track.LastUsed.Value.ToLocalTime():d MMM yyyy}" : "");
         IsSelected = selected;
         SelectCommand = new RelayCommand(() => select(this));
         EditCommand = new RelayCommand(() => edit(this));
@@ -75,7 +79,9 @@ public partial class TracksViewModel : TrackViewModelBase
     [ObservableProperty]
     public partial string Status { get; set; } = "";
 
-    /// <summary>Raised when a row asks to be edited or exported; the view handles navigation and file pickers.</summary>
+    /// <summary>
+    /// Raised when a row asks to be edited or exported; the view handles navigation and file pickers.
+    /// </summary>
     public event Action<Track>? EditRequested;
 
     public event Action<Track>? ExportRequested;
@@ -119,7 +125,8 @@ public partial class TracksViewModel : TrackViewModelBase
 
     public void Import(string json)
     {
-        Status = Service.Library.Import(json) is { } track ? $"Imported {track.Name}." : "That file is not a track.";
+        var track = Service.Library.Import(json);
+        Status = track != null ? $"Imported {track.Name}." : "That file is not a track.";
         Refresh();
     }
 }
@@ -134,11 +141,13 @@ public partial class TrackEditorViewModel : TrackViewModelBase
     {
         _track = existing ?? new Track();
         Name = _track.Name;
-        StartFinish = new MapLine { Label = "Start/Finish", IsStartFinish = true, A = _track.StartFinish?.A, B = _track.StartFinish?.B };
-        Lines.Add(StartFinish);
-        for (var i = 0; i < _track.Sectors.Count; i++)
-            Lines.Add(new MapLine { Label = $"Sector {i + 1}", A = _track.Sectors[i].A, B = _track.Sectors[i].B });
-        ActiveLine = StartFinish.A == null ? StartFinish : null;
+        if (_track.StartFinish != null) Lines.Add(new MapLine { Label = "Start/finish", Kind = MapLineKind.StartFinish, A = _track.StartFinish.A, B = _track.StartFinish.B });
+        foreach (var sector in _track.Sectors)
+            Lines.Add(new MapLine { Kind = MapLineKind.Sector, A = sector.A, B = sector.B });
+        if (_track.PitOut != null) Lines.Add(new MapLine { Kind = MapLineKind.PitOut, A = _track.PitOut.A, B = _track.PitOut.B });
+        Renumber();
+        if (_track.StartFinish == null) AddStartFinish();
+        else Status = "Tap a line to select it, then drag its handles, flip its direction or delete it.";
         Attach();
     }
 
@@ -149,8 +158,6 @@ public partial class TrackEditorViewModel : TrackViewModelBase
 
     public List<MapLine> Lines { get; } = new();
 
-    public MapLine StartFinish { get; }
-
     [ObservableProperty]
     public partial string Name { get; set; } = "";
 
@@ -160,61 +167,169 @@ public partial class TrackEditorViewModel : TrackViewModelBase
     /// <summary>The line the next taps on the map place points for.</summary>
     public MapLine? ActiveLine { get; set; }
 
-    public bool CanAddSector => Lines.Count - 1 < Track.MaxSectorLines;
+    /// <summary>The line the buttons below the map act on.</summary>
+    public MapLine? Selected { get; private set; }
+
+    private IEnumerable<MapLine> SectorLines => Lines.Where(l => l.Kind == MapLineKind.Sector);
+
+    private MapLine? StartFinishLine => Lines.FirstOrDefault(l => l.Kind == MapLineKind.StartFinish);
+
+    private MapLine? PitOutLine => Lines.FirstOrDefault(l => l.Kind == MapLineKind.PitOut);
+
+    public bool CanAddStartFinish => StartFinishLine == null;
+
+    public bool CanAddSector => SectorLines.Count() < Track.MaxSectorLines;
+
+    public bool CanAddPitOut => PitOutLine == null;
+
+    public bool HasSelection => Selected != null;
+
+    public bool HasCompleteSelection => Selected is { A: not null, B: not null };
+
+    public string SelectedText => Selected == null ? "Tap a line to select it" : Selected.Label;
 
     /// <summary>Raised when the lines or the active line changed from here (the map redraws).</summary>
     public event Action? MapChanged;
 
-    /// <summary>Where to start the map: the track, else the phone's position.</summary>
-    public GeoPoint? InitialCenter =>
-        _track.Center ?? (Service.Location.LastKnown is { } fix ? fix.Point : null);
+    /// <summary>Raised when the selection was changed from here (the map highlights it).</summary>
+    public event Action? SelectionRequested;
 
-    public GeoPoint? Here => Service.Location.LastKnown?.Point;
+    /// <summary>Where to start the map: the track, else the phone's position.</summary>
+    public GeoPoint? InitialCenter
+    {
+        get
+        {
+            if (_track.Center != null) return _track.Center;
+            var fix = Service.Location.LastKnown;
+            return fix != null ? fix.Point : null;
+        }
+    }
+
+    public GpsFix? Fix => Service.Location.LastKnown;
+
+    public GeoPoint? Here => Fix?.Point;
 
     protected override void Refresh()
     {
         OnPropertyChanged(nameof(IsUnlocked));
+        RefreshLines();
+    }
+
+    private void RefreshLines()
+    {
+        OnPropertyChanged(nameof(CanAddStartFinish));
         OnPropertyChanged(nameof(CanAddSector));
+        OnPropertyChanged(nameof(CanAddPitOut));
+        OnPropertyChanged(nameof(HasSelection));
+        OnPropertyChanged(nameof(HasCompleteSelection));
+        OnPropertyChanged(nameof(SelectedText));
+    }
+
+    /// <summary>The map tells us which line the rider touched, or a line it just finished placing.</summary>
+    public void OnMapSelected(MapLine? line)
+    {
+        Selected = line;
+        RefreshLines();
+    }
+
+    // Sector lines are numbered in the order they are listed.
+    private void Renumber()
+    {
+        var number = 0;
+        foreach (var line in Lines)
+        {
+            line.Number = line.Kind == MapLineKind.Sector ? ++number : 0;
+            line.Label = line.Kind switch
+            {
+                MapLineKind.StartFinish => "Start/finish",
+                MapLineKind.PitOut => "Pit-out line",
+                _ => $"Sector line {number}",
+            };
+        }
+    }
+
+    // A new line is selected and waits for its two taps. Adding another line never needs a save: it only ever changes this list.
+    private void Begin(MapLine line, string what)
+    {
+        ActiveLine = line;
+        Selected = line;
+        Status = $"Tap the map twice to place the {what}.";
+        RefreshLines();
+        MapChanged?.Invoke();
+        SelectionRequested?.Invoke();
     }
 
     [RelayCommand]
-    private void RedrawStartFinish()
+    private void AddStartFinish()
     {
-        StartFinish.A = StartFinish.B = null;
-        ActiveLine = StartFinish;
-        Status = "Tap the map twice to place the start/finish line.";
-        MapChanged?.Invoke();
+        if (!CanAddStartFinish) return;
+        var line = new MapLine { Kind = MapLineKind.StartFinish };
+        Lines.Insert(0, line);
+        Renumber();
+        Begin(line, "start/finish line");
     }
 
     [RelayCommand]
     private void AddSector()
     {
         if (!CanAddSector) return;
-        var line = new MapLine { Label = $"Sector {Lines.Count}" };
+        var line = new MapLine { Kind = MapLineKind.Sector };
+        // Sector lines stay in order ahead of the pit-out line.
+        var pit = PitOutLine;
+        Lines.Insert(pit != null ? Lines.IndexOf(pit) : Lines.Count, line);
+        Renumber();
+        Begin(line, line.Label.ToLowerInvariant());
+    }
+
+    [RelayCommand]
+    private void AddPitOut()
+    {
+        if (!CanAddPitOut) return;
+        var line = new MapLine { Kind = MapLineKind.PitOut };
         Lines.Add(line);
-        ActiveLine = line;
-        Status = $"Tap the map twice to place sector line {Lines.Count - 1}.";
-        OnPropertyChanged(nameof(CanAddSector));
+        Renumber();
+        Begin(line, "pit-out line (a lap that crosses it is marked invalid)");
+    }
+
+    /// <summary>Reverses the direction the selected line has to be crossed in.</summary>
+    [RelayCommand]
+    private void FlipSelected()
+    {
+        if (Selected is not { A: { } a, B: { } b } line) return;
+        line.A = b;
+        line.B = a;
+        Status = $"{line.Label}: direction reversed.";
         MapChanged?.Invoke();
     }
 
     [RelayCommand]
-    private void RemoveLastSector()
+    private void DeleteSelected()
     {
-        if (Lines.Count <= 1) return;
-        var last = Lines[^1];
-        Lines.RemoveAt(Lines.Count - 1);
-        if (ActiveLine == last) ActiveLine = null;
-        OnPropertyChanged(nameof(CanAddSector));
+        if (Selected is not { } line) return;
+        Lines.Remove(line);
+        if (ActiveLine == line) ActiveLine = null;
+        Selected = null;
+        Renumber();
+        Status = $"{line.Label} removed.";
+        RefreshLines();
         MapChanged?.Invoke();
+        SelectionRequested?.Invoke();
+    }
+
+    // A line that has both ends placed, or null. Every line is saved with its direction: the arrow on the map is what counts.
+    private static TrackLine? ToTrackLine(MapLine? line)
+    {
+        if (line == null || line.A == null || line.B == null) return null;
+        return new TrackLine(line.A.Value, line.B.Value, Directed: true);
     }
 
     /// <summary>Saves the track. Returns true when it was saved (the view then goes back).</summary>
     public bool Save()
     {
         _track.Name = Name.Trim();
-        _track.StartFinish = StartFinish is { A: { } a, B: { } b } ? new TrackLine(a, b) : null;
-        _track.Sectors = Lines.Skip(1).Where(l => l.A != null && l.B != null).Select(l => new TrackLine(l.A!.Value, l.B!.Value)).ToList();
+        _track.StartFinish = ToTrackLine(StartFinishLine);
+        _track.Sectors = SectorLines.Select(ToTrackLine).OfType<TrackLine>().ToList();
+        _track.PitOut = ToTrackLine(PitOutLine);
         var problem = Service.Library.Save(_track);
         Status = problem ?? "Saved.";
         if (problem == null) Service.NotifyChanged();
@@ -306,8 +421,9 @@ public partial class TrackTimerViewModel : TrackViewModelBase
             CanArm = !IsLocked && SelectedTrack != null;
 
             Laps.Clear();
-            foreach (var lap in timer.Laps.Reverse()) Laps.Add($"Lap {lap.Lap}   {Format(lap.Time)}");
-            BestText = timer.BestLap is { } best ? $"Best: lap {best.Lap}  {Format(best.Time)}" : "";
+            foreach (var lap in timer.Laps.Reverse()) Laps.Add($"Lap {lap.Lap}   {Format(lap.Time)}{(lap.Valid ? "" : "   invalid (pit out)")}");
+            var best = timer.BestLap;
+            BestText = best != null ? $"Best: lap {best.Lap}  {Format(best.Time)}" : "";
             RefreshLocationText();
         }
         finally
@@ -319,11 +435,13 @@ public partial class TrackTimerViewModel : TrackViewModelBase
     private void RefreshLocationText()
     {
         var location = Service.Location;
-        LocationText = !location.HasPermission
-            ? "Location permission is needed."
-            : !location.HasBackgroundPermission
-                ? "Location works while the app is open. For the bike to start a session on its own, allow location all the time."
-                : Service.LastFix is { } fix ? $"GPS ready (accuracy {fix.Accuracy:0} m)" : "GPS ready.";
+        var fix = Service.LastFix;
+        if (!location.HasPermission)
+            LocationText = "Location permission is needed.";
+        else if (!location.HasBackgroundPermission)
+            LocationText = "Location works while the app is open. For the bike to start a session on its own, allow location all the time.";
+        else
+            LocationText = fix != null ? $"GPS ready (accuracy {fix.Accuracy:0} m)" : "GPS ready.";
     }
 
     partial void OnSelectedTrackChanged(Track? value)
@@ -536,19 +654,24 @@ public partial class SessionsViewModel : TrackViewModelBase
         Sessions.Clear();
         foreach (var file in _files.List(SessionWriter.Folder).OrderByDescending(n => n, StringComparer.Ordinal))
         {
-            var records = _files.Read(SessionWriter.Folder, file) is { } text ? SessionWriter.Read(text) : Array.Empty<SessionRecord>();
+            var records = ReadRecords(file);
             var header = records.FirstOrDefault(r => r.Type == "header");
             var laps = records.Where(r => r.Type == "lap").ToList();
             var best = laps.Count > 0 ? laps.Min(l => l.Seconds ?? double.MaxValue) : (double?)null;
-            var title = header?.TrackName is { } name ? $"{name}  ·  {header.Utc.ToLocalTime():d MMM yyyy HH:mm}" : file;
-            var detail = $"{laps.Count} lap{(laps.Count == 1 ? "" : "s")}" + (best is { } b ? $" · best {TrackTimerViewModel.Format(TimeSpan.FromSeconds(b))}" : "") +
+            var title = header?.TrackName != null ? $"{header.TrackName}  ·  {header.Utc.ToLocalTime():d MMM yyyy HH:mm}" : file;
+            var detail = $"{laps.Count} lap{(laps.Count == 1 ? "" : "s")}" + (best != null ? $" · best {TrackTimerViewModel.Format(TimeSpan.FromSeconds(best.Value))}" : "") +
                          $" · {records.Count(r => r.Type == "sample")} GPS points";
             Sessions.Add(new SessionRow(file, title, detail, row => ExportRequested?.Invoke(row.File, Gpx(row.File)), Delete));
         }
     }
 
-    private string Gpx(string file) =>
-        GpxExporter.Export(_files.Read(SessionWriter.Folder, file) is { } text ? SessionWriter.Read(text) : Array.Empty<SessionRecord>());
+    private IReadOnlyList<SessionRecord> ReadRecords(string file)
+    {
+        var text = _files.Read(SessionWriter.Folder, file);
+        return text != null ? SessionWriter.Read(text) : Array.Empty<SessionRecord>();
+    }
+
+    private string Gpx(string file) => GpxExporter.Export(ReadRecords(file));
 
     private void Delete(SessionRow row)
     {

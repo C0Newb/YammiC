@@ -61,15 +61,21 @@ public class YmcMessageBroker
             missedCall: missedCall,
             social: social).SendAsync(ConnectionContext);
 
-    /// <summary>Reports the current phone-side volume for <paramref name="type"/> so the CCU display stays in sync.</summary>
+    /// <summary>
+    /// Reports the current phone-side volume for <paramref name="type"/> so the CCU display stays in sync.
+    /// </summary>
     public Task SendPhoneVolumeLevelAsync(BikeVolumeType type, int volumePercent) =>
         new AppPhoneVolumeLevelRequest(PacketHandler, type, volumePercent).SendAsync(ConnectionContext);
 
-    /// <summary>Pushes caller info for a ringing call, or a missed-call record once the ring goes unanswered.</summary>
+    /// <summary>
+    /// Pushes caller info for a ringing call, or a missed-call record once the ring goes unanswered.
+    /// </summary>
     public Task SendIncomingCallInformationAsync(string callerName, string phoneNumber, bool isMissedCall = false) =>
         new AppIncomingCallInformationRequest(PacketHandler, callerName, phoneNumber, isMissedCall).SendAsync(ConnectionContext);
 
-    /// <summary>Tells the CCU a call just started (off-hook) or ended (on-hook).</summary>
+    /// <summary>
+    /// Tells the CCU a call just started (off-hook) or ended (on-hook).
+    /// </summary>
     public Task SendCallChangeAsync(bool started) =>
         new AppCallChangeNotification(PacketHandler, started).SendAsync(ConnectionContext);
 

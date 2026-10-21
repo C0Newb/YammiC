@@ -21,15 +21,21 @@ public interface IYmcCallStateSource
     /// </summary>
     event Action<YmcCallState, string?>? CallStateChanged;
 
-    /// <summary>Starts listening. Does nothing (and may be called again later) if the required permission isn't granted yet.</summary>
+    /// <summary>
+    /// Starts listening. Does nothing (and may be called again later) if the required permission isn't granted yet.
+    /// </summary>
     void Start();
 
     void Stop();
 
-    /// <summary>Display name for <paramref name="phoneNumber"/> from the contacts, or null.</summary>
+    /// <summary>
+    /// Display name for <paramref name="phoneNumber"/> from the contacts, or null.
+    /// </summary>
     string? LookupContactName(string phoneNumber);
 
-    /// <summary>The phone's own number; only used as a fallback when the incoming number is unknown.</summary>
+    /// <summary>
+    /// The phone's own number; only used as a fallback when the incoming number is unknown.
+    /// </summary>
     string? LineNumber { get; }
 }
 
@@ -39,13 +45,19 @@ public interface IYmcCallStateSource
 /// </summary>
 public interface IYmcMediaSource
 {
-    /// <summary>Current metadata, with a placeholder when no session is reachable (see <see cref="YmcMediaPlaybackState.MediaDeviceUnavailable"/>).</summary>
+    /// <summary>
+    /// Current metadata, with a placeholder when no session is reachable (see <see cref="YmcMediaPlaybackState.MediaDeviceUnavailable"/>).
+    /// </summary>
     YmcMediaMetaData GetMetadata();
 
-    /// <summary>Raised when the active session, its playback state or its metadata changes.</summary>
+    /// <summary>
+    /// Raised when the active session, its playback state or its metadata changes.
+    /// </summary>
     event Action? Changed;
 
-    /// <summary>The current track's picture as encoded image bytes (a small JPEG/PNG), or null if there is none or the platform can't provide one.</summary>
+    /// <summary>
+    /// The current track's picture as encoded image bytes (a small JPEG/PNG), or null if there is none or the platform can't provide one.
+    /// </summary>
     byte[]? GetArtwork() => null;
 
     void Start();
@@ -59,10 +71,14 @@ public interface IYmcMediaSource
 /// </summary>
 public interface IYmcPowerSource
 {
-    /// <summary>Whether the phone is in power saving mode right now.</summary>
+    /// <summary>
+    /// Whether the phone is in power saving mode right now.
+    /// </summary>
     bool IsPowerSaveMode { get; }
 
-    /// <summary>Raised, with the new value, when it changes.</summary>
+    /// <summary>
+    /// Raised, with the new value, when it changes.
+    /// </summary>
     event Action<bool>? PowerSaveModeChanged;
 
     void Start();

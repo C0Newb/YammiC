@@ -28,7 +28,7 @@ public static partial class ScreenXamlValidator
         "Width", "Height", "MinWidth", "MinHeight", "MaxWidth", "MaxHeight", "Margin", "Padding", "Opacity", "IsVisible", "ClipToBounds", "Tag",
         "HorizontalAlignment", "VerticalAlignment", "Background", "NightBackground", "Foreground", "NightForeground",
         "Fill", "Track", "NightFill", "NightTrack", "Stroke", "StrokeThickness", "CornerRadius", "BorderBrush", "BorderThickness",
-        "FontSize", "FontWeight", "FontStyle", "FontFamily", "TextAlignment", "TextWrapping", "TextTrimming", "MaxLines", "LineHeight",
+        "FontSize", "FontWeight", "FontStyle", "FontFamily", "TextAlignment", "TextWrapping", "TextTrimming", "Overflow", "MaxLines", "LineHeight",
         "Text", "Template", "Data", "Origin", "Stretch", "Value", "Orientation", "Spacing", "RowDefinitions", "ColumnDefinitions",
     };
 

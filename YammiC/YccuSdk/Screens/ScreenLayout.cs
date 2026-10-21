@@ -1,12 +1,18 @@
 namespace CNCO.YccuSdk.Screens;
 
-/// <summary>Which of the bike's displays a layout is for.</summary>
+/// <summary>
+/// Which of the bike's displays a layout is for.
+/// </summary>
 public enum ScreenTarget
 {
-    /// <summary>The navigation screen (480x240; the actual display may be 480x234, see <see cref="ScreenSizes"/>).</summary>
+    /// <summary>
+    /// The navigation screen (480x240; the actual display may be 480x234, see <see cref="ScreenSizes"/>).
+    /// </summary>
     Navigation,
 
-    /// <summary>The Virtual Pit Board (600x306).</summary>
+    /// <summary>
+    /// The Virtual Pit Board (600x306).
+    /// </summary>
     VirtualPitBoard,
 }
 
@@ -16,7 +22,9 @@ public enum ScreenElementKind
     Image,
 }
 
-/// <summary>When an element is drawn. Lets one layout hold e.g. both a "now playing" and a "nothing playing" text.</summary>
+/// <summary>
+/// When an element is drawn. Lets one layout hold e.g. both a "now playing" and a "nothing playing" text.
+/// </summary>
 public enum ScreenShowWhen
 {
     Always,
@@ -37,13 +45,19 @@ public enum ScreenTextAlign
 
 public enum ScreenImageFit
 {
-    /// <summary>Whole image visible, aspect ratio kept (may leave empty space).</summary>
+    /// <summary>
+    /// Whole image visible, aspect ratio kept (may leave empty space).
+    /// </summary>
     Contain,
 
-    /// <summary>Box filled, aspect ratio kept (edges cropped).</summary>
+    /// <summary>
+    /// Box filled, aspect ratio kept (edges cropped).
+    /// </summary>
     Cover,
 
-    /// <summary>Box filled, image stretched.</summary>
+    /// <summary>
+    /// Box filled, image stretched.
+    /// </summary>
     Stretch,
 }
 
@@ -66,27 +80,37 @@ public class ScreenElement
 
     // -- Text -------------------------------------------------------------------
 
-    /// <summary>Text with <c>{variables}</c>, see <see cref="ScreenVariables"/>.</summary>
+    /// <summary>
+    /// Text with <c>{variables}</c>, see <see cref="ScreenVariables"/>.
+    /// </summary>
     public string Text { get; set; } = "";
 
     public float FontSize { get; set; } = 32;
     public bool Bold { get; set; }
     public ScreenTextAlign Align { get; set; }
 
-    /// <summary>Text colour as #RRGGBB or #AARRGGBB.</summary>
+    /// <summary>
+    /// Text colour as #RRGGBB or #AARRGGBB.
+    /// </summary>
     public string Color { get; set; } = "#FFFFFF";
 
-    /// <summary>Text colour at night; the day <see cref="Color"/> is used when null/empty.</summary>
+    /// <summary>
+    /// Text colour at night; the day <see cref="Color"/> is used when null/empty.
+    /// </summary>
     public string? NightColor { get; set; }
 
-    /// <summary>Fill behind the box (also used for image letterboxing); none when null/empty.</summary>
+    /// <summary>
+    /// Fill behind the box (also used for image letterboxing); none when null/empty.
+    /// </summary>
     public string? Background { get; set; }
 
     public string? NightBackground { get; set; }
 
     // -- Image ------------------------------------------------------------------
 
-    /// <summary>The image file (any common format) as base64, kept inside the layout so it can be exported as one file.</summary>
+    /// <summary>
+    /// The image file (any common format) as base64, kept inside the layout so it can be exported as one file.
+    /// </summary>
     public string? ImageData { get; set; }
 
     public ScreenImageFit Fit { get; set; }
@@ -94,7 +118,9 @@ public class ScreenElement
     public ScreenElement Clone() => (ScreenElement)MemberwiseClone();
 }
 
-/// <summary>A whole screen: a background and a back-to-front list of elements.</summary>
+/// <summary>
+/// A whole screen: a background and a back-to-front list of elements.
+/// </summary>
 public class ScreenLayout
 {
     public int Version { get; set; } = 1;
@@ -117,7 +143,9 @@ public class ScreenLayout
     };
 }
 
-/// <summary>Design-space and display sizes for each target.</summary>
+/// <summary>
+/// Design-space and display sizes for each target.
+/// </summary>
 public static class ScreenSizes
 {
     /// <summary>
@@ -142,7 +170,8 @@ public static class ScreenSizes
     /// </summary>
     public static (float X, float Y, float Width, float Height) Bounds(ScreenTarget target)
     {
-        if (VisibleArea(target) is { } area) return area;
+        var area = VisibleArea(target);
+        if (area != null) return area.Value;
         var (width, height) = DesignSize(target);
         return (0, 0, width, height);
     }

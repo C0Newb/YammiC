@@ -78,14 +78,18 @@ public partial class ScreenEditorView : ContentPage
 
     private async void AddImage_Click(object? sender, RoutedEventArgs e)
     {
-        if (_vm == null || await PickImageAsync() is not { } picked) return;
-        _vm.AddImage(picked.Data, picked.Name);
+        if (_vm == null) return;
+        var picked = await PickImageAsync();
+        if (picked == null) return;
+        _vm.AddImage(picked.Value.Data, picked.Value.Name);
     }
 
     private async void ChangeImage_Click(object? sender, RoutedEventArgs e)
     {
-        if (_vm == null || await PickImageAsync() is not { } picked) return;
-        _vm.ReplaceImage(picked.Data);
+        if (_vm == null) return;
+        var picked = await PickImageAsync();
+        if (picked == null) return;
+        _vm.ReplaceImage(picked.Value.Data);
     }
 
     private static readonly FilePickerFileType ScreenFileType = new("Screen (AXAML)")

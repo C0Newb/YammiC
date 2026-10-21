@@ -8,7 +8,9 @@ namespace CNCO.YccuSdk.Platform;
 /// </summary>
 public interface IYmcPhoneStatusProvider
 {
-    /// <summary>Battery level 0-100 (100 when unknown).</summary>
+    /// <summary>
+    /// Battery level 0-100 (100 when unknown).
+    /// </summary>
     int BatteryPercent { get; }
 
     bool IsCharging { get; }
@@ -17,11 +19,15 @@ public interface IYmcPhoneStatusProvider
 
     YmcCellSignalLevel CellSignalLevel { get; }
 
-    /// <summary>Current volume of the given stream as a 0-100 percentage.</summary>
+    /// <summary>
+    /// Current volume of the given stream as a 0-100 percentage.
+    /// </summary>
     int GetVolumePercent(BikeVolumeType type);
 }
 
-/// <summary>Adjusts the phone's volume on behalf of the CCU.</summary>
+/// <summary>
+/// Adjusts the phone's volume on behalf of the CCU.
+/// </summary>
 public interface IYmcVolumeController
 {
     int GetVolumePercent(BikeVolumeType type);
@@ -29,7 +35,9 @@ public interface IYmcVolumeController
     void Adjust(BikeVolumeType type, bool raise);
 }
 
-/// <summary>Answers / ends calls on behalf of the CCU.</summary>
+/// <summary>
+/// Answers / ends calls on behalf of the CCU.
+/// </summary>
 public interface IYmcCallController
 {
     bool CanControlCalls { get; }
@@ -39,17 +47,25 @@ public interface IYmcCallController
     void EndCall();
 }
 
-/// <summary>Controls media playback on behalf of the CCU.</summary>
+/// <summary>
+/// Controls media playback on behalf of the CCU.
+/// </summary>
 public interface IYmcMediaController
 {
-    /// <summary>Tries the active media session's transport controls. False if there is no active session.</summary>
+    /// <summary>
+    /// Tries the active media session's transport controls. False if there is no active session.
+    /// </summary>
     bool TryTransportControl(CcuMusicControlRequest.Action action);
 
-    /// <summary>Fallback when there is no active session: dispatches a media key event.</summary>
+    /// <summary>
+    /// Fallback when there is no active session: dispatches a media key event.
+    /// </summary>
     void DispatchMediaKey(CcuMusicControlRequest.Action action);
 }
 
-/// <summary>Small string key/value persistence (credentials, device name, ...).</summary>
+/// <summary>
+/// Small string key/value persistence (credentials, device name, ...).
+/// </summary>
 public interface IYmcKeyValueStore
 {
     string? GetString(string key);

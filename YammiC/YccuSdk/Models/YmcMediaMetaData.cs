@@ -29,4 +29,17 @@ public record YmcMediaMetaData(
     int DurationSeconds,
     YmcMediaPlaybackState PlaybackState,
     float PlaybackRate,
-    int ElapsedSeconds);
+    int ElapsedSeconds)
+{
+    /// <summary>
+    /// The same track <paramref name="since"/> later: while playing the position moves on (at the playback rate, never past the end);
+    /// otherwise nothing changes. Players only report a position when something happens, so screens that show it need this.
+    /// </summary>
+    public YmcMediaMetaData Advanced(TimeSpan since)
+    {
+        if (PlaybackState != YmcMediaPlaybackState.Playing || since <= TimeSpan.Zero) return this;
+        var position = ElapsedSeconds + (int)(since.TotalSeconds * PlaybackRate);
+        if (DurationSeconds > 0) position = Math.Min(position, DurationSeconds);
+        return this with { ElapsedSeconds = Math.Max(position, ElapsedSeconds) };
+    }
+}

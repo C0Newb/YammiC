@@ -113,7 +113,9 @@ public class NavigationHandshake
     /// </summary>
     public NavFrameReader Reader { get; }
 
-    /// <summary>The CCU part number announced in SEC_DATA, or null before the handshake got that far / if unreadable.</summary>
+    /// <summary>
+    /// The CCU part number announced in SEC_DATA, or null before the handshake got that far / if unreadable.
+    /// </summary>
     public string? PartNumber { get; private set; }
 
     /// <summary>
@@ -251,7 +253,9 @@ public class NavigationHandshake
         }
     }
 
-    /// <summary>Reads frames until one matches <paramref name="serviceType"/>, skipping any that don't.</summary>
+    /// <summary>
+    /// Reads frames until one matches <paramref name="serviceType"/>, skipping any that don't.
+    /// </summary>
     private NavFrameView AwaitService(int serviceType)
     {
         var frame = Reader.Next();

@@ -39,7 +39,9 @@ public partial class ShellView : DrawerPage
         _ => new Section(() => new DashboardView { DataContext = new DashboardViewModel(App.Controller) }),
     };
 
-    /// <summary>One section: a page stack whose first page is made when it appears.</summary>
+    /// <summary>
+    /// One section: a page stack whose first page is made when it appears.
+    /// </summary>
     private sealed class Section : NavigationPage
     {
         private readonly Func<Page> _root;

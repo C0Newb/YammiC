@@ -4,7 +4,9 @@ using CNCO.YccuSdk.Platform;
 
 namespace CNCO.YccuSdk.Yrc;
 
-/// <summary>The file format for saved and exported ride modes (also what the app keeps on the phone).</summary>
+/// <summary>
+/// The file format for saved and exported ride modes (also what the app keeps on the phone).
+/// </summary>
 public sealed class RideModeFile
 {
     public const string FormatName = "YammiC ride modes";
@@ -14,26 +16,36 @@ public sealed class RideModeFile
     public List<SavedRideMode> Profiles { get; set; } = new();
 }
 
-/// <summary>One saved ride mode.</summary>
+/// <summary>
+/// One saved ride mode.
+/// </summary>
 public sealed class SavedRideMode
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
 
-    /// <summary>What the rider calls this entry in the library.</summary>
+    /// <summary>
+    /// What the rider calls this entry in the library.
+    /// </summary>
     public string Label { get; set; } = "";
 
     public DateTime Saved { get; set; } = DateTime.Now;
 
-    /// <summary>Numeric mode code (for example 28 = Track 1).</summary>
+    /// <summary>
+    /// Numeric mode code (for example 28 = Track 1).
+    /// </summary>
     public int Mode { get; set; }
 
-    /// <summary>For people reading the file; ignored on import.</summary>
+    /// <summary>
+    /// For people reading the file; ignored on import.
+    /// </summary>
     public string ModeName { get; set; } = "";
 
     public int SavedNo { get; set; }
     public int ModeType { get; set; }
 
-    /// <summary>The name shown on the bike (at most 10 characters).</summary>
+    /// <summary>
+    /// The name shown on the bike (at most 10 characters).
+    /// </summary>
     public string Name { get; set; } = "";
 
     public List<SavedRideValue> Values { get; set; } = new();
@@ -57,7 +69,9 @@ public sealed class SavedRideValue
 {
     public int Kind { get; set; }
 
-    /// <summary>For people reading the file; ignored on import.</summary>
+    /// <summary>
+    /// For people reading the file; ignored on import.
+    /// </summary>
     public string Setting { get; set; } = "";
 
     public int Current { get; set; }
@@ -71,7 +85,9 @@ internal partial class RideModeJsonContext : JsonSerializerContext
 {
 }
 
-/// <summary>The rider's saved ride modes: kept on the phone, exported to and imported from JSON files.</summary>
+/// <summary>
+/// The rider's saved ride modes: kept on the phone, exported to and imported from JSON files.
+/// </summary>
 public sealed class ProfileLibrary
 {
     private const string Key = "ride_mode_library";
@@ -121,7 +137,30 @@ public sealed class ProfileLibrary
         Save();
     }
 
-    /// <summary>The whole library, or only the given entries, as the JSON file contents.</summary>
+    /// <summary>
+    /// Changes an entry's label, the name shown on the bike (cut to 10 characters) and the value of settings it already has.
+    /// Ranges and which settings exist are not editable here: they belong to the bike. Returns false if the entry is gone.
+    /// </summary>
+    public bool Update(string id, string label, string name, IReadOnlyDictionary<int, int> values)
+    {
+        lock (_gate)
+        {
+            var item = _items.FirstOrDefault(i => i.Id == id);
+            if (item == null) return false;
+            item.Label = label;
+            item.Name = YrcCodec.Truncate(name);
+            foreach (var v in item.Values)
+            {
+                if (values.TryGetValue(v.Kind, out var current)) v.Current = v.Max > v.Min ? Math.Clamp(current, v.Min, v.Max) : current;
+            }
+        }
+        Save();
+        return true;
+    }
+
+    /// <summary>
+    /// The whole library, or only the given entries, as the JSON file contents.
+    /// </summary>
     public string Export(IReadOnlyCollection<string>? ids = null)
     {
         var file = new RideModeFile();
@@ -129,7 +168,9 @@ public sealed class ProfileLibrary
         return JsonSerializer.Serialize(file, RideModeJsonContext.Default.RideModeFile);
     }
 
-    /// <summary>Adds the entries of an exported file. Returns how many were added; <paramref name="message"/> explains problems.</summary>
+    /// <summary>
+    /// Adds the entries of an exported file. Returns how many were added; <paramref name="message"/> explains problems.
+    /// </summary>
     public int Import(string json, out string message)
     {
         var file = TryParse(json, out message);
@@ -156,7 +197,9 @@ public sealed class ProfileLibrary
         return added;
     }
 
-    /// <summary>Why an entry cannot be used, or null if it looks fine.</summary>
+    /// <summary>
+    /// Why an entry cannot be used, or null if it looks fine.
+    /// </summary>
     public static string? Check(SavedRideMode entry)
     {
         if (entry.Mode is < 16 or > 46) return $"unknown mode {entry.Mode}";
@@ -182,6 +225,11 @@ public sealed class ProfileLibrary
         if (target == null)
         {
             problems.Add($"The bike has no {YrcNames.Mode(profile.Mode)} (read it from the bike first)");
+            return problems;
+        }
+        if (!YrcNames.IsEditable(target))
+        {
+            problems.Add($"{YrcNames.Mode(target.Mode)} ('{target.Name.Trim()}') is a built-in mode and cannot be changed; only Custom and the Track modes can");
             return problems;
         }
         foreach (var v in profile.Values)

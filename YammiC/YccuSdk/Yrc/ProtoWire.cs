@@ -2,7 +2,9 @@ using System.Text;
 
 namespace CNCO.YccuSdk.Yrc;
 
-/// <summary>Writes the few protobuf shapes the ride-settings messages need (varints, strings, nested messages).</summary>
+/// <summary>
+/// Writes the few protobuf shapes the ride-settings messages need (varints, strings, nested messages).
+/// </summary>
 internal sealed class ProtoWriter
 {
     private readonly List<byte> _bytes = new();
@@ -53,7 +55,9 @@ internal sealed class ProtoWriter
     }
 }
 
-/// <summary>Reads one protobuf message field by field. Unknown wire types stop the read.</summary>
+/// <summary>
+/// Reads one protobuf message field by field. Unknown wire types stop the read.
+/// </summary>
 internal ref struct ProtoReader
 {
     private readonly ReadOnlySpan<byte> _data;
@@ -65,7 +69,9 @@ internal ref struct ProtoReader
         _pos = 0;
     }
 
-    /// <summary>Reads the next field. <paramref name="payload"/> is the bytes of a length-delimited field.</summary>
+    /// <summary>
+    /// Reads the next field. <paramref name="payload"/> is the bytes of a length-delimited field.
+    /// </summary>
     public bool Next(out int field, out int wire, out long value, out ReadOnlySpan<byte> payload)
     {
         field = wire = 0;
@@ -98,7 +104,9 @@ internal ref struct ProtoReader
         }
     }
 
-    /// <summary>Expands a packed repeated varint field.</summary>
+    /// <summary>
+    /// Expands a packed repeated varint field.
+    /// </summary>
     public static List<int> UnpackVarints(ReadOnlySpan<byte> packed)
     {
         var list = new List<int>();

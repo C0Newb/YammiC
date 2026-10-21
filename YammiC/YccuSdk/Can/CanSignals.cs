@@ -9,22 +9,30 @@ public record CanValues
 {
     public double? Rpm { get; init; }
 
-    /// <summary>0 = neutral, 1..6 = gear, 7 = between gears (see <see cref="CanSignals.GearText"/>).</summary>
+    /// <summary>
+    /// 0 = neutral, 1..6 = gear, 7 = between gears (see <see cref="CanSignals.GearText"/>).
+    /// </summary>
     public int? Gear { get; init; }
 
     public double? WaterTempC { get; init; }
     public double? IntakeAirTempC { get; init; }
 
-    /// <summary>Throttle position sensor, in the reference app's units (scale unverified).</summary>
+    /// <summary>
+    /// Throttle position sensor, in the reference app's units (scale unverified).
+    /// </summary>
     public double? Tps { get; init; }
 
-    /// <summary>Accelerator position sensor, same units as <see cref="Tps"/>.</summary>
+    /// <summary>
+    /// Accelerator position sensor, same units as <see cref="Tps"/>.
+    /// </summary>
     public double? Aps { get; init; }
 
     public double? BankAngle { get; init; }
     public double? PitchRate { get; init; }
 
-    /// <summary>Acceleration in the reference app's units (offset by -7 so that 0 is at rest).</summary>
+    /// <summary>
+    /// Acceleration in the reference app's units (offset by -7 so that 0 is at rest).
+    /// </summary>
     public double? AccelX { get; init; }
 
     public double? AccelY { get; init; }
@@ -33,7 +41,9 @@ public record CanValues
 
     public static CanValues Empty { get; } = new();
 
-    /// <summary>Example values for the editor preview.</summary>
+    /// <summary>
+    /// Example values for the editor preview.
+    /// </summary>
     public static CanValues Sample { get; } = new()
     {
         Rpm = 4350,
@@ -51,15 +61,21 @@ public record CanValues
     };
 }
 
-/// <summary>What the CAN page lists: how each known ID is decoded.</summary>
+/// <summary>
+/// What the CAN page lists: how each known ID is decoded.
+/// </summary>
 public sealed record CanSignalInfo(int Id, string Name, string Description);
 
 public static class CanSignals
 {
-    /// <summary>Every CAN ID we know how to decode (the 2nd-generation set the reference app polls for the values above).</summary>
+    /// <summary>
+    /// Every CAN ID we know how to decode (the 2nd-generation set the reference app polls for the values above).
+    /// </summary>
     public static IReadOnlyList<int> KnownIds { get; } = new[] { 0x0250, 0x0258, 0x0276, 0x0279, 0x027C, 0x0512 };
 
-    /// <summary>What is requested until the user picks otherwise: just the throttle (0x0279), to keep Bluetooth traffic low.</summary>
+    /// <summary>
+    /// What is requested until the user picks otherwise: just the throttle (0x0279), to keep Bluetooth traffic low.
+    /// </summary>
     public static IReadOnlyList<int> DefaultIds { get; } = new[] { 0x0279 };
 
     public static IReadOnlyList<CanSignalInfo> Catalog { get; } = new CanSignalInfo[]
@@ -72,10 +88,14 @@ public static class CanSignals
         new(0x0512, "Temperatures", "water: b0*160/256-30; intake air: b1*160/256-30"),
     };
 
-    /// <summary>How long a reading is trusted before its values are blanked.</summary>
+    /// <summary>
+    /// How long a reading is trusted before its values are blanked.
+    /// </summary>
     public static readonly TimeSpan StaleAfter = TimeSpan.FromSeconds(3);
 
-    /// <summary>Decodes whatever is fresh in <paramref name="latest"/> (id -> (data, time received)).</summary>
+    /// <summary>
+    /// Decodes whatever is fresh in <paramref name="latest"/> (id -> (data, time received)).
+    /// </summary>
     public static CanValues Decode(IReadOnlyDictionary<int, (byte[] Data, DateTime At)> latest, DateTime now)
     {
         byte[]? Fresh(int id, int minLength) =>
@@ -83,39 +103,48 @@ public static class CanSignals
 
         var values = CanValues.Empty;
 
-        if (Fresh(0x027C, 4) is { } rpm)
+        var rpm = Fresh(0x027C, 4);
+        if (rpm != null)
             values = values with { Rpm = U16(rpm, 0) * 100 / 256.0 };
 
         // Observed on a bike (the reference app reads a different bit): byte 4 is 0 for neutral, 1..6 for the gears and 7 between gears.
-        if (Fresh(0x027C, 5) is { } gearData)
+        var gearData = Fresh(0x027C, 5);
+        if (gearData != null)
             values = values with { Gear = gearData[4] & 7 };
 
-        if (Fresh(0x0512, 2) is { } temps)
+        var temps = Fresh(0x0512, 2);
+        if (temps != null)
             values = values with { WaterTempC = Temp(temps[0]), IntakeAirTempC = Temp(temps[1]) };
 
-        if (Fresh(0x0279, 4) is { } throttle)
+        var throttle = Fresh(0x0279, 4);
+        if (throttle != null)
             values = values with { Tps = U16(throttle, 0) * 125 / 1024.0, Aps = U16(throttle, 2) * 125 / 1024.0 };
 
-        if (Fresh(0x0258, 8) is { } lean)
+        var lean = Fresh(0x0258, 8);
+        if (lean != null)
         {
             // The reference app rearranges four nibbles: (b0&15)*4096 + (b2&15)*256 + (b1&15)*16 + (b3>>4).
             var bank = (lean[0] & 15) * 4096 + (lean[2] & 15) * 256 + (lean[1] & 15) * 16 + ((lean[3] >> 4) & 15);
             values = values with { BankAngle = bank / 100.0 - 90, PitchRate = U16(lean, 6) / 100.0 - 300 };
         }
 
-        if (Fresh(0x0250, 4) is { } accel)
+        var accel = Fresh(0x0250, 4);
+        if (accel != null)
             values = values with { AccelX = U16(accel, 0) / 1000.0 - 7, AccelY = U16(accel, 2) / 1000.0 - 7 };
 
-        if (Fresh(0x0276, 4) is { } wheels)
+        var wheels = Fresh(0x0276, 4);
+        if (wheels != null)
             values = values with { FrontWheelSpeed = U16(wheels, 0) / 100.0, RearWheelSpeed = U16(wheels, 2) / 100.0 };
 
         return values;
     }
 
-    /// <summary>N for neutral, "-" while between gears (7), otherwise the gear number; a dash when unknown.</summary>
+    /// <summary>
+    /// N for neutral, "-" while between gears (7), otherwise the gear number; a dash when unknown.
+    /// </summary>
     public static string GearText(int? gear) => gear switch
     {
-        null => "2014",
+        null => "—",
         0 => "N",
         7 => "-",
         var g => g.Value.ToString(System.Globalization.CultureInfo.CurrentCulture),

@@ -5,7 +5,9 @@ using CNCO.YccuSdk.Packets.App;
 
 namespace CNCO.YccuSdk.Yrc;
 
-/// <summary>One finished lap and what became of sending it to the bike.</summary>
+/// <summary>
+/// One finished lap and what became of sending it to the bike.
+/// </summary>
 public sealed record LapRecord(int Number, TimeSpan Time, string Status);
 
 /// <summary>
@@ -118,7 +120,9 @@ public sealed class LapTimer
         Updated?.Invoke();
     }
 
-    /// <summary>Starts from zero.</summary>
+    /// <summary>
+    /// Starts from zero.
+    /// </summary>
     public void StartTimer()
     {
         lock (_gate)
@@ -133,7 +137,9 @@ public sealed class LapTimer
         Updated?.Invoke();
     }
 
-    /// <summary>Stops the clock; the lap in progress is reported as the last lap.</summary>
+    /// <summary>
+    /// Stops the clock; the lap in progress is reported as the last lap.
+    /// </summary>
     public async Task StopTimerAsync()
     {
         bool wasRunning;
@@ -149,7 +155,9 @@ public sealed class LapTimer
         await FinishLapAsync();
     }
 
-    /// <summary>Ends the current lap and starts the next one.</summary>
+    /// <summary>
+    /// Ends the current lap and starts the next one.
+    /// </summary>
     public Task LapAsync() => IsRunning ? FinishLapAsync() : Task.CompletedTask;
 
     private async Task FinishLapAsync()
@@ -181,12 +189,13 @@ public sealed class LapTimer
             AppSendLapSectorTime.GapNotMeasured,
         };
         var problem = AppSendLapSectorTime.Validate(lap.Number, lapCs, reference, 0, gaps);
+        var mb = _broker.MessageBroker;
         string status;
         if (problem != null)
         {
             status = problem;
         }
-        else if (!_broker.IsBikeConnected || _broker.MessageBroker is not { } mb)
+        else if (!_broker.IsBikeConnected || mb == null)
         {
             status = "Not connected";
         }

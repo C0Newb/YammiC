@@ -5,7 +5,9 @@ using CNCO.YccuSdk.Models;
 
 namespace CNCO.YccuSdk.Screens;
 
-/// <summary>What a screen can show: the moment it is drawn for.</summary>
+/// <summary>
+/// What a screen can show: the moment it is drawn for.
+/// </summary>
 /// <param name="Now">Local time.</param>
 /// <param name="Media">Current music, or null for none.</param>
 /// <param name="Night">Dark theme.</param>
@@ -14,7 +16,9 @@ namespace CNCO.YccuSdk.Screens;
 /// <param name="AlbumArt">The current track's picture as encoded image bytes (JPEG/PNG), or null when there isn't one.</param>
 public record ScreenContext(DateTime Now, YmcMediaMetaData? Media, bool Night, float Zoom = 1f, CanValues? Can = null, byte[]? AlbumArt = null)
 {
-    /// <summary>True when a real track is known (not the placeholder statuses, which have no state).</summary>
+    /// <summary>
+    /// True when a real track is known (not the placeholder statuses, which have no state).
+    /// </summary>
     public bool HasMusic =>
         Media != null && Media.PlaybackState != YmcMediaPlaybackState.MediaDeviceUnavailable && !string.IsNullOrWhiteSpace(Media.SongName);
 
@@ -30,7 +34,9 @@ public static class ScreenVariables
 {
     public sealed record Info(string Name, string Description, string Example);
 
-    /// <summary>The variables, for showing in the editor.</summary>
+    /// <summary>
+    /// The variables, for showing in the editor.
+    /// </summary>
     public static IReadOnlyList<Info> Catalog { get; } = new Info[]
     {
         new("time", "Time, 24 hour. Optional format, e.g. {time:HH:mm:ss}", "14:07"),
@@ -58,13 +64,17 @@ public static class ScreenVariables
         new("rearspeed", "Rear wheel speed", "62"),
     };
 
-    /// <summary>Names of the variables that come from the bike's CAN data (the pit board only redraws every ~15 s).</summary>
+    /// <summary>
+    /// Names of the variables that come from the bike's CAN data (the pit board only redraws every ~15 s).
+    /// </summary>
     public static readonly IReadOnlySet<string> CanVariableNames = new HashSet<string>
     {
         "rpm", "water", "intake", "gear", "tps", "aps", "bank", "pitch", "accelx", "accely", "frontspeed", "rearspeed",
     };
 
-    /// <summary>True when any text element of <paramref name="layout"/> uses a bike-data variable.</summary>
+    /// <summary>
+    /// True when any text element of <paramref name="layout"/> uses a bike-data variable.
+    /// </summary>
     public static bool UsesCan(ScreenLayout layout) =>
         layout.Elements.Any(e => e.Kind == ScreenElementKind.Text && TextUsesCan(e.Text));
 
@@ -89,7 +99,8 @@ public static class ScreenVariables
 
     private static string Number(double? value, string? format, string defaultFormat, CultureInfo culture)
     {
-        if (value is not { } v) return Dash;
+        if (value == null) return Dash;
+        var v = value.Value;
         var f = format != null && (format.Contains('0') || format.Contains('#')) ? format : defaultFormat;
         try
         {
@@ -103,7 +114,8 @@ public static class ScreenVariables
 
     private static string Temperature(double? celsius, string? format, CultureInfo culture)
     {
-        if (celsius is not { } c) return Dash;
+        if (celsius == null) return Dash;
+        var c = celsius.Value;
         return format != null && format.Trim().Equals("F", StringComparison.OrdinalIgnoreCase)
             ? (c * 9 / 5 + 32).ToString("0", culture)
             : c.ToString("0", culture);
@@ -114,7 +126,8 @@ public static class ScreenVariables
         switch (name)
         {
             case "rpm":
-                return can?.Rpm is { } rpm ? (Math.Round(rpm / 50) * 50).ToString("0", culture) : Dash;
+                var rpm = can?.Rpm;
+                return rpm != null ? (Math.Round(rpm.Value / 50) * 50).ToString("0", culture) : Dash;
             case "water": return Temperature(can?.WaterTempC, format, culture);
             case "intake": return Temperature(can?.IntakeAirTempC, format, culture);
             case "gear":
@@ -131,7 +144,9 @@ public static class ScreenVariables
         }
     }
 
-    /// <summary>Replaces the variables in <paramref name="template"/> using <paramref name="context"/>.</summary>
+    /// <summary>
+    /// Replaces the variables in <paramref name="template"/> using <paramref name="context"/>.
+    /// </summary>
     public static string Resolve(string? template, ScreenContext context)
     {
         if (string.IsNullOrEmpty(template)) return "";

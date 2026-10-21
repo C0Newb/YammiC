@@ -10,17 +10,29 @@ public abstract class AppOutgoingPacket : YmcPacket
     {
     }
 
-    /// <summary>Frame preamble (command code)</summary>
+    /// <summary>
+    /// Frame preamble (command code)
+    /// </summary>
     protected byte[] Preamble => ShortBytes(CommandCode);
 
-    /// <summary>Packet transport style.</summary>
+    /// <summary>
+    /// Packet transport style.
+    /// </summary>
     public abstract Transport PacketTransport { get; }
 
-    /// <summary>Packet transport styles.</summary>
+    /// <summary>
+    /// Packet transport styles.
+    /// </summary>
     public enum Transport
     {
         Simple,
         Ddt,
+
+        /// <summary>
+        /// Written in packets to <see cref="YmcBikeProtocol.DdtV3WriteUuid"/> (see <see cref="YmcBikeProtocol.DdtV3WritePackets"/>).
+        /// Used for the ride-mode (YRC) messages the bike has to act on.
+        /// </summary>
+        DdtV3,
 
         /// <summary>
         /// Written to the Classic-Bluetooth SPP socket instead of a BLE GATT characteristic.
@@ -31,10 +43,14 @@ public abstract class AppOutgoingPacket : YmcPacket
         Spp,
     }
 
-    /// <summary>Serialize the packet to a byte array to transmit via BlueTooth.</summary>
+    /// <summary>
+    /// Serialize the packet to a byte array to transmit via BlueTooth.
+    /// </summary>
     public abstract byte[] Serialize(byte requestId);
 
-    /// <summary>Sends this packet out.</summary>
+    /// <summary>
+    /// Sends this packet out.
+    /// </summary>
     public Task SendAsync(YmcConnectionContext connectionContext) => PacketHandler.SendAsync(connectionContext, this);
 }
 

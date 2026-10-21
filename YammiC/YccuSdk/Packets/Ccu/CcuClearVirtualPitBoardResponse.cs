@@ -2,7 +2,9 @@ namespace CNCO.YccuSdk.Packets.Ccu;
 
 using CNCO.YccuSdk.Logging;
 
-/// <summary>CCU reports it could not clear the Virtual Pit Board display. No payload beyond the command code.</summary>
+/// <summary>
+/// CCU reports it could not clear the Virtual Pit Board display. No payload beyond the command code.
+/// </summary>
 [SuppressUiLog(YmcCommandCode.ClearVirtualPitBoardResponseNg)]
 public class CcuClearVirtualPitBoardResponseNg : CcuIncomingResponse
 {
@@ -18,7 +20,9 @@ public class CcuClearVirtualPitBoardResponseNg : CcuIncomingResponse
     }
 }
 
-/// <summary>CCU confirms the Virtual Pit Board display was cleared. No payload beyond the command code.</summary>
+/// <summary>
+/// CCU confirms the Virtual Pit Board display was cleared. No payload beyond the command code.
+/// </summary>
 [SuppressUiLog(YmcCommandCode.ClearVirtualPitBoardResponseOk)]
 public class CcuClearVirtualPitBoardResponseOk : CcuIncomingResponse
 {

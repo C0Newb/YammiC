@@ -2,14 +2,18 @@ using CNCO.YccuSdk.Navigation.Protocol;
 
 namespace CNCO.YccuSdk.Navigation;
 
-/// <summary>Which of the CCU's point-of-interest screens a list belongs to.</summary>
+/// <summary>
+/// Which of the CCU's point-of-interest screens a list belongs to.
+/// </summary>
 public enum NavPoiList
 {
     Favorites = NaviLiteContentType.FavoriteList,
     Stations = NaviLiteContentType.StationsList,
 }
 
-/// <summary>Where a POI lies relative to the vehicle (not compass).</summary>
+/// <summary>
+/// Where a POI lies relative to the vehicle (not compass).
+/// </summary>
 public enum NavPoiDirection : byte
 {
     Undefined = 0,
@@ -29,7 +33,9 @@ public enum NavPoiDirection : byte
 /// </summary>
 public record NavPoi(string Name, string Road, int Distance = 0, NavPoiDirection Direction = NavPoiDirection.Front);
 
-/// <summary>The rider picked a POI on the CCU (START_ROUTE_REQUEST).</summary>
+/// <summary>
+/// The rider picked a POI on the CCU (START_ROUTE_REQUEST).
+/// </summary>
 /// <param name="List">Which screen the entry was picked from.</param>
 /// <param name="ItemIndex">Index into the list that was sent.</param>
 /// <param name="RouteOption">The CCU's route option byte (new route / next stop / last stop in StreetCross).</param>

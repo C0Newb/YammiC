@@ -92,7 +92,9 @@ public sealed class AndroidPhoneStatusProvider : IYmcPhoneStatusProvider, IYmcVo
         : Stream.VoiceCall;
 }
 
-/// <summary>Answers / ends calls through TelecomManager (needs ANSWER_PHONE_CALLS).</summary>
+/// <summary>
+/// Answers / ends calls through TelecomManager (needs ANSWER_PHONE_CALLS).
+/// </summary>
 public sealed class AndroidCallController : IYmcCallController
 {
     private readonly Context _context;
@@ -114,7 +116,9 @@ public sealed class AndroidCallController : IYmcCallController
     }
 }
 
-/// <summary>Controls the active media session, falling back to media key events.</summary>
+/// <summary>
+/// Controls the active media session, falling back to media key events.
+/// </summary>
 public sealed class AndroidMediaController : IYmcMediaController
 {
     private readonly AudioManager? _audioManager;
@@ -150,7 +154,8 @@ public sealed class AndroidMediaController : IYmcMediaController
             CcuMusicControlRequest.Action.PreviousTrack => Keycode.MediaPrevious,
             _ => (Keycode?)null,
         };
-        if (keyCode is not { } key) return;
+        if (keyCode == null) return;
+        var key = keyCode.Value;
         _audioManager?.DispatchMediaKeyEvent(new KeyEvent(KeyEventActions.Down, key));
         _audioManager?.DispatchMediaKeyEvent(new KeyEvent(KeyEventActions.Up, key));
     }

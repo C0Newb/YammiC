@@ -16,6 +16,7 @@ public class YmcMediaStateRelay
     private readonly Logger _log;
     private CancellationTokenSource? _pendingPush;
     private YmcMediaMetaData? _latestMetadata;
+    private DateTime _latestAt = DateTime.UtcNow;
 
     public YmcMediaStateRelay(IYmcMediaSource source, Func<YmcMessageBroker?> getBroker, Logger logger)
     {
@@ -25,10 +26,20 @@ public class YmcMediaStateRelay
         _source.Changed += PushMetadata;
     }
 
-    /// <summary>The most recent metadata snapshot (for UIs), or null before the first one.</summary>
+    /// <summary>
+    /// The most recent metadata snapshot (for UIs), or null before the first one.
+    /// </summary>
     public YmcMediaMetaData? LatestMetadata => _latestMetadata;
 
-    /// <summary>Raised whenever <see cref="LatestMetadata"/> changes.</summary>
+    /// <summary>
+    /// <see cref="LatestMetadata"/> with its position moved on to now (the source only reports a position when something happens),
+    /// or null before the first snapshot.
+    /// </summary>
+    public YmcMediaMetaData? CurrentMetadata => _latestMetadata?.Advanced(DateTime.UtcNow - _latestAt);
+
+    /// <summary>
+    /// Raised whenever <see cref="LatestMetadata"/> changes.
+    /// </summary>
     public event Action<YmcMediaMetaData?>? LatestMetadataChanged;
 
     public void Start()
@@ -44,11 +55,14 @@ public class YmcMediaStateRelay
         _pendingPush = null;
     }
 
-    /// <summary>Sends the current media metadata (debounced), e.g. right after connecting.</summary>
+    /// <summary>
+    /// Sends the current media metadata (debounced), e.g. right after connecting.
+    /// </summary>
     public void PushMetadata()
     {
         // Update the UI-facing snapshot immediately; the BLE send below is separately
         // debounced and re-reads metadata after the delay so its own behavior is unchanged.
+        _latestAt = DateTime.UtcNow;
         _latestMetadata = _source.GetMetadata();
         LatestMetadataChanged?.Invoke(_latestMetadata);
 
@@ -80,10 +94,13 @@ public class YmcMediaStateRelay
         });
     }
 
-    /// <summary>Awaitable variant for the on-connect job, which needs the push to actually be sent.</summary>
+    /// <summary>
+    /// Awaitable variant for the on-connect job, which needs the push to actually be sent.
+    /// </summary>
     public Task PushMetadataNowAsync()
     {
         var broker = _getBroker();
+        _latestAt = DateTime.UtcNow;
         _latestMetadata = _source.GetMetadata();
         LatestMetadataChanged?.Invoke(_latestMetadata);
         return broker == null ? Task.CompletedTask : broker.SendMusicMetaDataResponseAsync(_latestMetadata);

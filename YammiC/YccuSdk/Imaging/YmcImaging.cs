@@ -8,7 +8,9 @@ namespace CNCO.YccuSdk.Imaging;
 /// </summary>
 public static class YmcImaging
 {
-    /// <summary>Encodes <paramref name="bitmap"/> as JPEG with the given quality (0-100).</summary>
+    /// <summary>
+    /// Encodes <paramref name="bitmap"/> as JPEG with the given quality (0-100).
+    /// </summary>
     public static byte[] EncodeJpeg(SKBitmap bitmap, int quality = 100)
     {
         using var image = SKImage.FromBitmap(bitmap);
@@ -17,7 +19,9 @@ public static class YmcImaging
         return data.ToArray();
     }
 
-    /// <summary>Scales <paramref name="source"/> to exactly <paramref name="width"/> x <paramref name="height"/> (stretching).</summary>
+    /// <summary>
+    /// Scales <paramref name="source"/> to exactly <paramref name="width"/> x <paramref name="height"/> (stretching).
+    /// </summary>
     public static SKBitmap Scale(SKBitmap source, int width, int height)
     {
         var scaled = new SKBitmap(width, height);

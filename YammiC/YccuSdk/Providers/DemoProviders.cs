@@ -3,7 +3,9 @@ using CNCO.YccuSdk.Packets.Ccu;
 
 namespace CNCO.YccuSdk.Providers;
 
-/// <summary>Fixed, deliberately silly forecast for exercising every weather icon and the encoder's clamping.</summary>
+/// <summary>
+/// Fixed, deliberately silly forecast for exercising every weather icon and the encoder's clamping.
+/// </summary>
 public class DemoWeatherProvider : IYmcWeatherProvider
 {
     public Task<YmcWeatherData> GetWeatherAsync(CcuWeatherRequest request)

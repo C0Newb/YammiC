@@ -8,6 +8,9 @@
   <ItemGroup>
     <PackageReference Include="SkiaSharp" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="YccuSdk.Tests" />
+  </ItemGroup>
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'browser'">
     <PackageReference Include="SkiaSharp.NativeAssets.WebAssembly" />
   </ItemGroup>

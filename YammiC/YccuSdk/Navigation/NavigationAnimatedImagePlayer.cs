@@ -26,7 +26,9 @@ internal class NavigationAnimatedImagePlayer
         _onFrame = onFrame;
     }
 
-    /// <summary>Starts decoding/playing <paramref name="encodedImage"/>. Call <see cref="Stop"/> first if reusing.</summary>
+    /// <summary>
+    /// Starts decoding/playing <paramref name="encodedImage"/>. Call <see cref="Stop"/> first if reusing.
+    /// </summary>
     public void Start(byte[] encodedImage, int quality)
     {
         var cancellation = new CancellationTokenSource();
@@ -34,7 +36,9 @@ internal class NavigationAnimatedImagePlayer
         _ = Task.Run(() => DecodeAndPlayAsync(encodedImage, quality, cancellation.Token));
     }
 
-    /// <summary>Stops playback. Safe to call more than once.</summary>
+    /// <summary>
+    /// Stops playback. Safe to call more than once.
+    /// </summary>
     public void Stop()
     {
         _cancellation?.Cancel();

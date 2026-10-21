@@ -264,6 +264,10 @@ public class BrokerBikeController : IBikeController
 
     public Task<bool> ClearVpbAsync() => _service != null ? _service.ClearVpbAsync() : _broker.ClearVirtualPitBoardAsync();
 
+    public bool SendTurnGuidance(CNCO.YccuSdk.Navigation.Protocol.TurnGuidance turn) => _service?.ShowTurn(turn) ?? false;
+
+    public bool ClearTurnGuidance() => _service?.ClearTurn() ?? false;
+
     public void OpenNotificationAccessSettings()
     {
         if (!Platform.IsAndroid()) return;

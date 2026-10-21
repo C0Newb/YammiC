@@ -10,10 +10,14 @@ public abstract record NavigationState
     {
     }
 
-    /// <summary>Initial state; no connection attempt in progress.</summary>
+    /// <summary>
+    /// Initial state; no connection attempt in progress.
+    /// </summary>
     public sealed record Idle : NavigationState;
 
-    /// <summary>Connection handshake in progress.</summary>
+    /// <summary>
+    /// Connection handshake in progress.
+    /// </summary>
     public sealed record Connecting : NavigationState;
 
     /// <summary>

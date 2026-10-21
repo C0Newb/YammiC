@@ -5,7 +5,9 @@ using System.Text.Json.Serialization;
 
 namespace CNCO.YccuSdk.Tracks;
 
-/// <summary>One line of a session file. <see cref="Type"/> is "header", "sample", "lap", "sector" or "note".</summary>
+/// <summary>
+/// One line of a session file. <see cref="Type"/> is "header", "sample", "lap", "sector" or "note".
+/// </summary>
 public sealed class SessionRecord
 {
     public string Type { get; set; } = "";
@@ -29,6 +31,7 @@ public sealed class SessionRecord
     public int? Lap { get; set; }
     public int? Sector { get; set; }
     public double? Seconds { get; set; }
+    public bool? Valid { get; set; }
     public List<double>? SectorSeconds { get; set; }
 
     // note
@@ -67,7 +70,7 @@ public sealed class SessionWriter
         Write(new SessionRecord
         {
             Type = "sample", Utc = fix.Utc, Lat = fix.Lat, Lon = fix.Lon, Speed = fix.SpeedMps, Bearing = fix.Bearing, Accuracy = fix.Accuracy,
-            Can = can is { Count: > 0 } ? can : null,
+            Can = can != null && can.Count > 0 ? can : null,
         });
 
     public void Event(TrackEvent e)
@@ -81,14 +84,19 @@ public sealed class SessionWriter
                 Write(new SessionRecord { Type = "sector", Utc = s.Utc, Lap = s.Lap, Sector = s.Sector, Seconds = s.Time.TotalSeconds });
                 break;
             case LapCompleted l:
-                Write(new SessionRecord { Type = "lap", Utc = l.Utc, Lap = l.Lap, Seconds = l.Time.TotalSeconds, SectorSeconds = l.SectorTimes.Select(t => t.TotalSeconds).ToList() });
+                Write(new SessionRecord { Type = "lap", Utc = l.Utc, Lap = l.Lap, Seconds = l.Time.TotalSeconds, SectorSeconds = l.SectorTimes.Select(t => t.TotalSeconds).ToList(), Valid = l.Valid ? null : false });
+                break;
+            case PitOutCrossed p:
+                Write(new SessionRecord { Type = "note", Utc = p.Utc, Text = $"Pit out during lap {p.Lap}: lap invalid" });
                 break;
         }
     }
 
     public void Note(DateTime utc, string text) => Write(new SessionRecord { Type = "note", Utc = utc, Text = text });
 
-    /// <summary>Reads a session file; lines that are not valid records (such as a cut-off last line) are skipped.</summary>
+    /// <summary>
+    /// Reads a session file; lines that are not valid records (such as a cut-off last line) are skipped.
+    /// </summary>
     public static IReadOnlyList<SessionRecord> Read(string text)
     {
         var records = new List<SessionRecord>();
@@ -96,7 +104,8 @@ public sealed class SessionWriter
         {
             try
             {
-                if (JsonSerializer.Deserialize<SessionRecord>(line, Options) is { Type.Length: > 0 } record) records.Add(record);
+                var record = JsonSerializer.Deserialize<SessionRecord>(line, Options);
+                if (record != null && record.Type != null && record.Type.Length > 0) records.Add(record);
             }
             catch (JsonException)
             {
@@ -109,25 +118,27 @@ public sealed class SessionWriter
 
 public static class GpxExporter
 {
-    /// <summary>A GPX track of the samples in a session, with laps as waypoints.</summary>
+    /// <summary>
+    /// A GPX track of the samples in a session, with laps as waypoints.
+    /// </summary>
     public static string Export(IReadOnlyList<SessionRecord> records)
     {
         var name = records.FirstOrDefault(r => r.Type == "header")?.TrackName ?? "Session";
         var gpx = new StringBuilder();
         gpx.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
         gpx.AppendLine("<gpx version=\"1.1\" creator=\"YammiC\" xmlns=\"http://www.topografix.com/GPX/1/1\">");
-        var samples = records.Where(r => r is { Type: "sample", Lat: not null, Lon: not null }).ToList();
+        var samples = records.Where(r => r.Type == "sample" && r.Lat != null && r.Lon != null).ToList();
         foreach (var lap in records.Where(r => r.Type == "lap"))
         {
             var near = samples.OrderBy(s => Math.Abs((s.Utc - lap.Utc).Ticks)).FirstOrDefault();
             if (near == null) continue;
-            gpx.AppendLine($"  <wpt lat=\"{Num(near.Lat!.Value)}\" lon=\"{Num(near.Lon!.Value)}\"><name>Lap {lap.Lap}: {FormatLap(lap.Seconds ?? 0)}</name></wpt>");
+            gpx.AppendLine($"  <wpt lat=\"{Num(near.Lat!.Value)}\" lon=\"{Num(near.Lon!.Value)}\"><name>Lap {lap.Lap}: {FormatLap(lap.Seconds ?? 0)}{(lap.Valid == false ? " (invalid)" : "")}</name></wpt>");
         }
         gpx.AppendLine($"  <trk><name>{Escape(name)}</name><trkseg>");
         foreach (var s in samples)
         {
             gpx.Append($"    <trkpt lat=\"{Num(s.Lat!.Value)}\" lon=\"{Num(s.Lon!.Value)}\"><time>{s.Utc.ToUniversalTime():yyyy-MM-ddTHH:mm:ss.fffZ}</time>");
-            if (s.Speed is { } speed) gpx.Append($"<extensions><speed>{Num(speed)}</speed></extensions>");
+            if (s.Speed != null) gpx.Append($"<extensions><speed>{Num(s.Speed.Value)}</speed></extensions>");
             gpx.AppendLine("</trkpt>");
         }
         gpx.AppendLine("  </trkseg></trk>");

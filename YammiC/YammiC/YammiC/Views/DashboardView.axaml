@@ -3,7 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:YammiC.ViewModels"
-             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="900"
              Header="YammiC"
              x:DataType="vm:DashboardViewModel"
              x:Class="YammiC.Views.DashboardView">
@@ -12,103 +12,123 @@
     </Design.DataContext>
 
     <ScrollViewer>
-        <StackPanel Margin="16" Spacing="16">
+        <StackPanel Margin="16" Spacing="20">
 
             <Border Classes="card" IsVisible="{Binding NeedsNotificationAccess}">
-                <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock VerticalAlignment="Center"
-                               TextWrapping="Wrap"
-                               Text="Notification access required for music" />
-                    <Button Grid.Column="1"
-                            Content="Grant"
-                            Command="{Binding GrantNotificationAccessCommand}" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <StackPanel Spacing="2" VerticalAlignment="Center">
+                        <TextBlock Text="Notification access needed" />
+                        <TextBlock Classes="caption" TextWrapping="Wrap" Text="Lets the bike show what is playing and control the music." />
+                    </StackPanel>
+                    <Button Grid.Column="1" Content="Grant" Command="{Binding GrantNotificationAccessCommand}" />
                 </Grid>
             </Border>
 
+            <!-- Connection -->
+            <Border Classes="card">
+                <StackPanel Spacing="14">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                        <Ellipse Width="12" Height="12" VerticalAlignment="Center" Fill="{Binding StatusBrush}" />
+                        <StackPanel Grid.Column="1" Spacing="2">
+                            <TextBlock Classes="title" FontSize="20" TextTrimming="CharacterEllipsis" Text="{Binding BikeName}" />
+                            <TextBlock Classes="caption" Text="{Binding StatusText}" />
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock Foreground="{DynamicResource SystemErrorTextColor}" TextWrapping="Wrap"
+                               IsVisible="{Binding HasError}" Text="{Binding LastError}" />
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                        <Button Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                Content="Connect" IsEnabled="{Binding CanConnect}" Command="{Binding ConnectCommand}" />
+                        <Button Grid.Column="1" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                Content="Disconnect" IsEnabled="{Binding CanDisconnect}" Command="{Binding DisconnectCommand}" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Live data -->
             <StackPanel Spacing="8">
-                <TextBlock Classes="title" Text="{Binding BikeName}" />
-                <WrapPanel>
-                    <TextBlock Margin="0,0,16,0" Text="{Binding BleNameText}" />
-                    <TextBlock Margin="0,0,16,0" Text="{Binding StatusText}" />
-                    <TextBlock Text="{Binding OdometerText}" />
-                </WrapPanel>
-                <TextBlock Foreground="{DynamicResource SystemErrorTextColor}"
-                           TextWrapping="Wrap"
-                           IsVisible="{Binding HasError}"
-                           Text="{Binding LastError}" />
+                <TextBlock Classes="section" Text="LIVE" />
+                <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="8">
+                    <Border Classes="card">
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="caption" Text="Gear" />
+                            <TextBlock Classes="value" Text="{Binding GearText}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="1" Classes="card">
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="caption" Text="Engine speed" />
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <TextBlock Classes="value" Text="{Binding RpmText}" />
+                                <TextBlock Classes="caption" VerticalAlignment="Bottom" Margin="0,0,0,5" Text="rpm" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Row="1" Classes="card">
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="caption" Text="Coolant" />
+                            <TextBlock Classes="value" Text="{Binding WaterTempText}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Row="1" Grid.Column="1" Classes="card">
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="caption" Text="Intake air" />
+                            <TextBlock Classes="value" Text="{Binding IntakeTempText}" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+                <TextBlock Classes="caption" TextWrapping="Wrap" Margin="4,0,0,0"
+                           IsVisible="{Binding LiveHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                           Text="{Binding LiveHint}" />
             </StackPanel>
 
-            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                <Button Classes="accent"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Center"
-                        Content="Connect"
-                        IsEnabled="{Binding CanConnect}"
-                        Command="{Binding ConnectCommand}" />
-                <Button Grid.Column="1"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Center"
-                        Content="Disconnect"
-                        IsEnabled="{Binding CanDisconnect}"
-                        Command="{Binding DisconnectCommand}" />
-            </Grid>
-
-            <Border Classes="card">
-                <StackPanel Spacing="4">
-                    <TextBlock Classes="subtitle" Text="Now playing" />
-                    <TextBlock FontSize="18" Text="{Binding MediaTrack}" />
-                    <TextBlock Text="{Binding MediaArtist}" />
-                    <TextBlock Opacity="0.7" Text="{Binding MediaState}" />
-                </StackPanel>
-            </Border>
-
-            <Border Classes="card">
-                <StackPanel Spacing="8">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <TextBlock Classes="subtitle" VerticalAlignment="Center" Text="Virtual Pit Board" />
-                        <ToggleSwitch Grid.Column="1"
-                                      OnContent="" OffContent=""
-                                      IsChecked="{Binding VpbEnabled}" />
+            <!-- Track timer -->
+            <StackPanel Spacing="8">
+                <TextBlock Classes="section" Text="TRACK TIMER" />
+                <Border Classes="card">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                        <Ellipse Width="12" Height="12" VerticalAlignment="Top" Margin="0,5,0,0" Fill="{Binding TimerBrush}" />
+                        <StackPanel Grid.Column="1" Spacing="2">
+                            <TextBlock Classes="subtitle" Text="{Binding TimerStateText}" />
+                            <TextBlock Text="{Binding TimerTrackText}" />
+                            <TextBlock Classes="caption" IsVisible="{Binding TimerBestText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                       Text="{Binding TimerBestText}" />
+                        </StackPanel>
                     </Grid>
-                    <TextBlock Text="{Binding VpbStatus}" />
-                </StackPanel>
-            </Border>
+                </Border>
+            </StackPanel>
 
-            <Border Classes="card">
-                <StackPanel Spacing="8">
-                    <TextBlock Classes="subtitle" Text="Pit board image" />
-                    <Image Source="{Binding VpbImagePreview}"
-                           MaxHeight="160"
-                           Stretch="Uniform"
-                           HorizontalAlignment="Left" />
-                    <TextBlock Opacity="0.7" TextWrapping="Wrap" Text="{Binding VpbImageName}" />
-                    <WrapPanel>
-                        <Button Margin="0,0,8,8"
-                                Classes="accent"
-                                Content="Send image"
-                                IsEnabled="{Binding !IsSendingVpbImage}"
-                                Command="{Binding SendVpbImageCommand}" />
-                        <Button Margin="0,0,8,8"
-                                Content="Choose image..."
-                                Click="ChooseVpbImage_Click" />
-                        <Button Margin="0,0,8,8"
-                                Content="Use sandwich"
-                                Command="{Binding UseDefaultVpbImageCommand}" />
-                        <Button Margin="0,0,8,8"
-                                Content="Clear board"
-                                IsEnabled="{Binding !IsSendingVpbImage}"
-                                Command="{Binding ClearVpbImageCommand}" />
-                    </WrapPanel>
-                    <TextBlock TextWrapping="Wrap" Text="{Binding VpbImageStatus}" />
-                </StackPanel>
-            </Border>
+            <!-- Bike displays -->
+            <StackPanel Spacing="8">
+                <TextBlock Classes="section" Text="BIKE DISPLAY" />
+                <Border Classes="card">
+                    <StackPanel Spacing="14">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Spacing="2" VerticalAlignment="Center">
+                                <TextBlock Text="Virtual Pit Board" />
+                                <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding VpbStatus}" />
+                            </StackPanel>
+                            <ToggleSwitch Grid.Column="1" OnContent="" OffContent="" IsChecked="{Binding VpbEnabled}" />
+                        </Grid>
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="Navigation" />
+                            <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding NavigationStatus}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
 
-            <Border Classes="card" Cursor="Hand" PointerReleased="NavigationCard_PointerReleased">
-                <StackPanel Spacing="8">
-                    <TextBlock Classes="subtitle" Text="Navigation" />
-                    <TextBlock Text="{Binding NavigationStatus}" />
-                </StackPanel>
-            </Border>
+            <!-- Media -->
+            <StackPanel Spacing="8">
+                <TextBlock Classes="section" Text="NOW PLAYING" />
+                <Border Classes="card">
+                    <StackPanel Spacing="2">
+                        <TextBlock FontSize="18" TextTrimming="CharacterEllipsis" Text="{Binding MediaTrack}" />
+                        <TextBlock TextTrimming="CharacterEllipsis" Text="{Binding MediaArtist}" />
+                        <TextBlock Classes="caption" Text="{Binding MediaState}" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
 
         </StackPanel>
     </ScrollViewer>

@@ -39,7 +39,8 @@ public class BikeForegroundService : Service
         // Keep the notification in sync with the controller's connection state.
         _broker = BikeHost.Service?.Controller;
         if (_broker != null) _broker.StateChanged += OnBrokerStateChanged;
-        if (BikeHost.TrackTimer is { } tracks) tracks.Changed += OnTrackChanged;
+        var tracks = BikeHost.TrackTimer;
+        if (tracks != null) tracks.Changed += OnTrackChanged;
         SyncWakeLock();
     }
 
@@ -63,7 +64,8 @@ public class BikeForegroundService : Service
     {
         lock (typeof(BikeForegroundService)) _requested = false;
         if (_broker != null) _broker.StateChanged -= OnBrokerStateChanged;
-        if (BikeHost.TrackTimer is { } tracks) tracks.Changed -= OnTrackChanged;
+        var tracks = BikeHost.TrackTimer;
+        if (tracks != null) tracks.Changed -= OnTrackChanged;
         ReleaseWakeLock();
         base.OnDestroy();
     }
@@ -84,7 +86,8 @@ public class BikeForegroundService : Service
     private void EnterForeground()
     {
         var notification = BuildNotification(_broker?.IsBikeConnected == true);
-        var locationOk = BikeHost.TrackTimer?.Location is { HasPermission: true } location && (location.HasBackgroundPermission || TrackActive);
+        var location = BikeHost.TrackTimer?.Location;
+        var locationOk = location != null && location.HasPermission && (location.HasBackgroundPermission || TrackActive);
         if (locationOk)
         {
             try

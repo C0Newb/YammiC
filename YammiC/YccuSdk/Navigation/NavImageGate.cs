@@ -4,16 +4,24 @@ using CNCO.YccuSdk.Screens;
 
 namespace CNCO.YccuSdk.Navigation;
 
-/// <summary>Whether the bike is showing the navigation picture and wants to be sent one.</summary>
+/// <summary>
+/// Whether the bike is showing the navigation picture and wants to be sent one.
+/// </summary>
 public enum NavImageDemand
 {
-    /// <summary>Nothing heard yet on this connection (the bike hasn't said whether it is on the navigation screen).</summary>
+    /// <summary>
+    /// Nothing heard yet on this connection (the bike hasn't said whether it is on the navigation screen).
+    /// </summary>
     Unknown,
 
-    /// <summary>The rider opened the navigation screen (START_CONTENT_UPDATE_REQUEST for the picture).</summary>
+    /// <summary>
+    /// The rider opened the navigation screen (START_CONTENT_UPDATE_REQUEST for the picture).
+    /// </summary>
     Wanted,
 
-    /// <summary>The rider left it (STOP_CONTENT_UPDATE_REQUEST).</summary>
+    /// <summary>
+    /// The rider left it (STOP_CONTENT_UPDATE_REQUEST).
+    /// </summary>
     Paused,
 }
 
@@ -26,7 +34,9 @@ public sealed class NavImageGate
     private readonly object _gate = new();
     private NavImageDemand _demand = NavImageDemand.Unknown;
 
-    /// <summary>Raised with the new state each time it really changes.</summary>
+    /// <summary>
+    /// Raised with the new state each time it really changes.
+    /// </summary>
     public event Action<NavImageDemand>? Changed;
 
     public NavImageDemand Demand
@@ -37,20 +47,28 @@ public sealed class NavImageGate
         }
     }
 
-    /// <summary>True only while the bike has asked for pictures and not stopped.</summary>
+    /// <summary>
+    /// True only while the bike has asked for pictures and not stopped.
+    /// </summary>
     public bool ImagesWanted => Demand == NavImageDemand.Wanted;
 
-    /// <summary>The bike opened (<paramref name="started"/>) or left a content screen.</summary>
+    /// <summary>
+    /// The bike opened (<paramref name="started"/>) or left a content screen.
+    /// </summary>
     public void OnContentRequest(int contentType, bool started)
     {
         if (contentType != NaviLiteContentType.NaviImage) return;
         Set(started ? NavImageDemand.Wanted : NavImageDemand.Paused);
     }
 
-    /// <summary>A new connection: nothing is known again.</summary>
+    /// <summary>
+    /// A new connection: nothing is known again.
+    /// </summary>
     public void Reset() => Set(NavImageDemand.Unknown);
 
-    /// <summary>The line shown on the bike when pictures are held back, or null when they are wanted.</summary>
+    /// <summary>
+    /// The line shown on the bike when pictures are held back, or null when they are wanted.
+    /// </summary>
     public static string? StatusText(NavImageDemand demand) => demand switch
     {
         NavImageDemand.Paused => "Rendering paused.",
@@ -69,7 +87,9 @@ public sealed class NavImageGate
     }
 }
 
-/// <summary>A plain one-line picture for the navigation display (used for the "rendering paused" notices).</summary>
+/// <summary>
+/// A plain one-line picture for the navigation display (used for the "rendering paused" notices).
+/// </summary>
 public static class NavigationStatusImage
 {
     public static byte[] Render(string text, NavDisplaySize size)

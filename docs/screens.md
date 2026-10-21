@@ -32,9 +32,9 @@ Code: `YccuSdk/Screens` (document, state, actions, validator, migration — no U
 
 ## Default navigation screen
 
-With nothing saved, the navigation display shows a *Now playing* page: track title, artist, album and elapsed/duration on the
-left, the album art top-right (a note shows through while the track has none), and a progress bar along the bottom;
-"No music playing" when nothing plays. Its zoom buttons skip tracks (`ZoomIn="Media.Next"`, `ZoomOut="Media.Previous"`), and it has
+With nothing saved, the navigation display shows a *Now playing* page: artist, album (both wrapped) and elapsed/duration on the
+left, the album art top-right (a note shows through while the track has none) with a gap above the progress bar along the bottom;
+"No music playing" when nothing plays. The track title is the bike's road name line (`RoadName="{song}"`, see below). Its zoom buttons skip tracks (`ZoomIn="Media.Next"`, `ZoomOut="Media.Previous"`), and it has
 day and night colours. The pit board default is still the artist - song strip.
 
 ## Allowed content
@@ -55,6 +55,20 @@ Pages bind to `ScreenState`: `HasMusic IsPlaying IsPaused NoMusic Day Night Song
 Elapsed Duration Progress PageId PageIndex PageNumber PageCount Now Flags[name] Vars[name]` and the bike data `Rpm Water Intake
 Gear Tps Aps Bank Pitch AccelX AccelY FrontSpeed RearSpeed` (a dash when stale). `VarText` also understands the older
 `{variable}` / `{variable:format}` templates (`ScreenVariables`).
+
+## Road name
+
+The navigation display has a second, text-only channel: the road name line (about 60 letters). It is a template with the same
+`{variables}` as `VarText`, set on the document (`RoadName="{song}"` on `<y:ScreenDocument>`) and optionally per page
+(`RoadName="{artist} - {song}"` on `<y:Page>`; a page's value wins, `RoadName=""` blanks it for that page). It is sent when the
+text changes and again whenever the screen starts. It is edited under *Pages* in the editor. The pit board has none.
+
+## Long text
+
+`y:VarText` takes `Overflow="Trim|Wrap|Scroll"`. *Trim* (default) keeps `TextWrapping`/`TextTrimming`; *Wrap* wraps onto more lines
+(use `MaxLines` to limit them; the rest ends in an ellipsis); *Scroll* slides the text sideways: it rests 1.5 s, scrolls at
+40 px/s, rests 1.5 s at the end and starts over (put it in a `y:ScreenBox`, which clips). Scrolling redraws the picture every
+`ScrollStep` (150 ms Normal, 300 ms Low) while music shows, so it costs battery and Bluetooth traffic; wrap is free.
 
 ## Bike buttons (events)
 

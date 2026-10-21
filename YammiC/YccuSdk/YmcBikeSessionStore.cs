@@ -42,7 +42,9 @@ internal class YmcBikeSessionStore
 
     public void SaveDeviceName(string deviceName) => _store.SetString(KeyDeviceName, deviceName.Trim());
 
-    /// <summary>The bike's Bluetooth address from the last successful scan (used to recognise it when it connects to the phone).</summary>
+    /// <summary>
+    /// The bike's Bluetooth address from the last successful scan (used to recognise it when it connects to the phone).
+    /// </summary>
     public string? BikeAddress => _store.GetString(KeyBikeAddress);
 
     public void SaveBikeAddress(string address) => _store.SetString(KeyBikeAddress, address.Trim());

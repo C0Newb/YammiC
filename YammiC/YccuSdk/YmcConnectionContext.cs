@@ -24,6 +24,8 @@ public class YmcConnectionContext
 
     public Task<byte[]?> ReadAsync(Guid characteristicUuid) => _btManager.ReadAsync(_serviceUuid, characteristicUuid);
 
-    /// <summary>Writes a framed payload to the Classic-Bluetooth SPP socket (Virtual Pit Board graphic chunks).</summary>
+    /// <summary>
+    /// Writes a framed payload to the Classic-Bluetooth SPP socket (Virtual Pit Board graphic chunks).
+    /// </summary>
     public Task<bool> WriteSppAsync(byte[] framedPacket) => _btManager.WriteSppAsync(framedPacket);
 }

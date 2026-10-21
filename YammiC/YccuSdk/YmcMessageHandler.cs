@@ -16,7 +16,9 @@ public class YmcMessageHandler
     private readonly IYmcPacketHandler _packetHandler;
     private readonly YmcNotificationBus _notifications;
 
-    /// <summary>Message handler task</summary>
+    /// <summary>
+    /// Message handler task
+    /// </summary>
     private CancellationTokenSource? _messageHandlerCancellation;
     private YmcConnectionContext? _connectionContext;
 

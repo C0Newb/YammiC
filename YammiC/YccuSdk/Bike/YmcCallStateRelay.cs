@@ -39,7 +39,9 @@ public class YmcCallStateRelay
 
     public void Stop() => _source.Stop();
 
-    /// <summary>Sends the current call state immediately, e.g. right after connecting.</summary>
+    /// <summary>
+    /// Sends the current call state immediately, e.g. right after connecting.
+    /// </summary>
     public async Task PushCurrentCallStateAsync()
     {
         var broker = _getBroker();
@@ -109,7 +111,9 @@ public class YmcCallStateRelay
         }
     }
 
-    /// <summary>Waits briefly for the incoming number, then pushes the ring with whatever we have.</summary>
+    /// <summary>
+    /// Waits briefly for the incoming number, then pushes the ring with whatever we have.
+    /// </summary>
     private void ScheduleRingPush()
     {
         CancelPendingRing();

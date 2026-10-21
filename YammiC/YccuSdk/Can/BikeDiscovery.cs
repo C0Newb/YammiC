@@ -53,7 +53,9 @@ public sealed class BikeDiscovery
         if (payload != null) Handle(payload);
     }
 
-    /// <summary>Handles one complete message: <c>[cmd 2B][len 3B][protobuf]</c>.</summary>
+    /// <summary>
+    /// Handles one complete message: <c>[cmd 2B][len 3B][protobuf]</c>.
+    /// </summary>
     private void Handle(byte[] message)
     {
         if (message.Length < 2) return;
@@ -85,7 +87,9 @@ public sealed class BikeDiscovery
         }
     }
 
-    /// <summary>Reads the integer fields of a protobuf message; packed repeated fields are expanded.</summary>
+    /// <summary>
+    /// Reads the integer fields of a protobuf message; packed repeated fields are expanded.
+    /// </summary>
     private static Dictionary<int, List<int>>? ReadFields(byte[] buffer, int start)
     {
         var result = new Dictionary<int, List<int>>();
@@ -158,7 +162,9 @@ public sealed class BikeDiscovery
         lock (_gate) return _supported.ContainsKey(server);
     }
 
-    /// <summary>Waits until <paramref name="done"/> holds or the time is up.</summary>
+    /// <summary>
+    /// Waits until <paramref name="done"/> holds or the time is up.
+    /// </summary>
     public static async Task<bool> WaitAsync(Func<bool> done, TimeSpan timeout)
     {
         var deadline = DateTime.UtcNow + timeout;
@@ -170,7 +176,9 @@ public sealed class BikeDiscovery
         return done();
     }
 
-    /// <summary>What was found, as text for the explorer page.</summary>
+    /// <summary>
+    /// What was found, as text for the explorer page.
+    /// </summary>
     public string Report()
     {
         lock (_gate)

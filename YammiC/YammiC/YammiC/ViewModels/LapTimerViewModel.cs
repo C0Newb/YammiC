@@ -12,7 +12,9 @@ namespace YammiC.ViewModels;
 
 public record LapRow(string Number, string Time, string Status);
 
-/// <summary>A stopwatch for trying the bike's lap-time display: Start, Lap, Stop; each lap is sent to the bike.</summary>
+/// <summary>
+/// A stopwatch for trying the bike's lap-time display: Start, Lap, Stop; each lap is sent to the bike.
+/// </summary>
 public partial class LapTimerViewModel : BikeViewModelBase
 {
     private readonly LapTimer? _timer;

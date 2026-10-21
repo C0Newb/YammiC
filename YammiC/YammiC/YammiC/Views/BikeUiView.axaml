@@ -3,7 +3,8 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:YammiC.ViewModels"
-             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
+             xmlns:v="using:YammiC.Views"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="1000"
              Header="Bike UI"
              x:DataType="vm:SettingsViewModel"
              x:Class="YammiC.Views.BikeUiView">
@@ -12,50 +13,97 @@
     </Design.DataContext>
 
     <ScrollViewer>
-        <StackPanel Margin="16" Spacing="8">
-            <ToggleSwitch Content="Navigation" IsChecked="{Binding NavigationEnabled}" />
-            <ToggleSwitch Content="Virtual Pit Board support" IsChecked="{Binding VpbEnabled}" />
-            <ToggleSwitch Content="Home and work buttons (navigation)" IsChecked="{Binding HomeAndWorkEnabled}" />
-            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                <TextBlock VerticalAlignment="Center" Text="Nav mode" />
-                <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
-                          ItemsSource="{x:Static vm:SettingsViewModel.NavModes}"
-                          SelectedItem="{Binding NavigationMode}" />
-            </Grid>
-            <TextBlock Opacity="0.7" TextWrapping="Wrap"
-                       Text="Sandwich: the demo image. Ui: your screen from the screen editor. Reels: videos from a folder, scrolled with the bike's zoom buttons, with sound on the phone." />
-            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                <TextBlock VerticalAlignment="Center" Text="Nav refresh" />
-                <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
-                          ItemsSource="{x:Static vm:SettingsViewModel.NavRefreshModes}"
-                          SelectedItem="{Binding NavRefresh}" />
-            </Grid>
-            <TextBlock Opacity="0.7" TextWrapping="Wrap"
-                       Text="Normal: smooth and sharp. Low: fewer, smaller pictures to save battery and Bluetooth traffic. Auto: Low while the phone's battery saver is on." />
-            <Border Classes="card" IsVisible="{Binding ReelsSupported}">
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                    <StackPanel Spacing="2">
-                        <TextBlock Classes="subtitle" Text="Reels folder" />
-                        <TextBlock Opacity="0.7" TextWrapping="Wrap" Text="{Binding ReelsFolderText}" />
+        <StackPanel Margin="16" Spacing="20">
+
+            <StackPanel Spacing="8">
+                <TextBlock Classes="section" Text="NAVIGATION SCREEN" />
+                <Border Classes="card">
+                    <StackPanel Spacing="14">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Spacing="2" VerticalAlignment="Center">
+                                <TextBlock Text="Navigation" />
+                                <TextBlock Classes="caption" Text="Draw on the bike's navigation screen" />
+                            </StackPanel>
+                            <ToggleSwitch Grid.Column="1" OnContent="" OffContent="" IsChecked="{Binding NavigationEnabled}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Spacing="2" VerticalAlignment="Center">
+                                <TextBlock Text="Home and work buttons" />
+                                <TextBlock Classes="caption" Text="Report your saved addresses to the bike" />
+                            </StackPanel>
+                            <ToggleSwitch Grid.Column="1" OnContent="" OffContent="" IsChecked="{Binding HomeAndWorkEnabled}" />
+                        </Grid>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Content" />
+                            <ComboBox HorizontalAlignment="Stretch"
+                                      ItemsSource="{x:Static vm:SettingsViewModel.NavModes}"
+                                      SelectedItem="{Binding NavigationMode}" />
+                            <TextBlock Classes="caption" TextWrapping="Wrap"
+                                       Text="Sandwich: the demo image. Ui: your screen from the screen editor. Reels: videos from a folder, scrolled with the bike's zoom buttons, with sound on the phone." />
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Refresh" />
+                            <ComboBox HorizontalAlignment="Stretch"
+                                      ItemsSource="{x:Static vm:SettingsViewModel.NavRefreshModes}"
+                                      SelectedItem="{Binding NavRefresh}" />
+                            <TextBlock Classes="caption" TextWrapping="Wrap"
+                                       Text="Normal: smooth and sharp. Low: fewer, smaller pictures to save battery and Bluetooth traffic. Auto: Low while the phone's battery saver is on." />
+                        </StackPanel>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="{Binding ReelsSupported}">
+                            <StackPanel Spacing="2" VerticalAlignment="Center">
+                                <TextBlock Text="Reels folder" />
+                                <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding ReelsFolderText}" />
+                            </StackPanel>
+                            <Button Grid.Column="1" VerticalAlignment="Center" Content="Choose..." Click="ChooseReelsFolder_Click" />
+                        </Grid>
                     </StackPanel>
-                    <Button Grid.Column="1" VerticalAlignment="Center" Content="Choose..." Click="ChooseReelsFolder_Click" />
-                </Grid>
-            </Border>
-            <ToggleSwitch Content="Custom pit board screen" IsChecked="{Binding VpbScreenEnabled}" />
+                </Border>
+            </StackPanel>
 
-            <Border Classes="card" Cursor="Hand" PointerReleased="NavigationSettings_PointerReleased">
-                <StackPanel Spacing="2">
-                    <TextBlock Classes="subtitle" Text="Navigation status" />
-                    <TextBlock Opacity="0.7" Text="The navigation link and its connection state" />
-                </StackPanel>
-            </Border>
+            <StackPanel Spacing="8">
+                <TextBlock Classes="section" Text="VIRTUAL PIT BOARD" />
+                <Border Classes="card">
+                    <StackPanel Spacing="14">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Spacing="2" VerticalAlignment="Center">
+                                <TextBlock Text="Pit board support" />
+                                <TextBlock Classes="caption" Text="Messages and pictures on the pit board" />
+                            </StackPanel>
+                            <ToggleSwitch Grid.Column="1" OnContent="" OffContent="" IsChecked="{Binding VpbEnabled}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Spacing="2" VerticalAlignment="Center">
+                                <TextBlock Text="Custom screen" />
+                                <TextBlock Classes="caption" TextWrapping="Wrap" Text="Keep your own screen on the board (replaces the demo image and one-off messages)" />
+                            </StackPanel>
+                            <ToggleSwitch Grid.Column="1" OnContent="" OffContent="" IsChecked="{Binding VpbScreenEnabled}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+                <v:PitBoardImageCard x:Name="PitCard" />
+            </StackPanel>
 
-            <Border Classes="card" Cursor="Hand" PointerReleased="ScreenEditorRow_PointerReleased">
-                <StackPanel Spacing="2">
-                    <TextBlock Classes="subtitle" Text="Screen editor" />
-                    <TextBlock Opacity="0.7" Text="Design the navigation and pit board screens" />
-                </StackPanel>
-            </Border>
+            <StackPanel Spacing="8">
+                <TextBlock Classes="section" Text="TOOLS" />
+                <Border Classes="card link" Cursor="Hand" PointerReleased="ScreenEditorRow_PointerReleased">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="subtitle" Text="Screen editor" />
+                            <TextBlock Classes="caption" Text="Design the navigation and pit board screens" />
+                        </StackPanel>
+                        <Path Grid.Column="1" Classes="chevron" />
+                    </Grid>
+                </Border>
+                <Border Classes="card link" Cursor="Hand" PointerReleased="NavigationSettings_PointerReleased">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="subtitle" Text="Navigation status" />
+                            <TextBlock Classes="caption" Text="The navigation link and its connection state" />
+                        </StackPanel>
+                        <Path Grid.Column="1" Classes="chevron" />
+                    </Grid>
+                </Border>
+            </StackPanel>
         </StackPanel>
     </ScrollViewer>
 </ContentPage>

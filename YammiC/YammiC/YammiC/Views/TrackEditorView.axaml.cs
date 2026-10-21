@@ -1,30 +1,52 @@
+using System;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using CNCO.YccuSdk.Tracks;
+using Avalonia.Threading;
 using YammiC.ViewModels;
 
 namespace YammiC.Views;
 
 public partial class TrackEditorView : ContentPage
 {
+    private readonly DispatcherTimer _position = new() { Interval = TimeSpan.FromSeconds(1) };
     private TrackEditorViewModel? _vm;
 
     public TrackEditorView()
     {
         InitializeComponent();
+        _position.Tick += (_, _) => ShowPosition();
+        Map.LinesChanged += OnLinesChanged;
+        Map.SelectionChanged += () => _vm?.OnMapSelected(Map.SelectedLine);
         DataContextChanged += (_, _) =>
         {
-            if (_vm != null) _vm.MapChanged -= SyncMap;
+            if (_vm != null)
+            {
+                _vm.MapChanged -= SyncMap;
+                _vm.SelectionRequested -= SyncSelection;
+            }
             _vm = DataContext as TrackEditorViewModel;
             if (_vm == null) return;
 
             Map.Lines = _vm.Lines;
-            Map.Here = _vm.Here;
             Map.Center = _vm.InitialCenter ?? Map.Center;
             _vm.MapChanged += SyncMap;
-            Map.LinesChanged += OnLinesChanged;
+            _vm.SelectionRequested += SyncSelection;
             SyncMap();
+            ShowPosition();
         };
+    }
+
+    protected override void OnLoaded(RoutedEventArgs e)
+    {
+        base.OnLoaded(e);
+        _position.Start();
+    }
+
+    protected override void OnUnloaded(RoutedEventArgs e)
+    {
+        base.OnUnloaded(e);
+        _position.Stop();
+        _vm?.Detach();
     }
 
     // The view model owns the line list and the active line; the control draws them and edits the points.
@@ -36,11 +58,33 @@ public partial class TrackEditorView : ContentPage
         Map.InvalidateVisual();
     }
 
+    private void SyncSelection() => Map.SelectedLine = _vm?.Selected;
+
+    private void ShowPosition()
+    {
+        var fix = _vm?.Fix;
+        if (fix != null)
+        {
+            Map.Here = fix.Point;
+            Map.HereBearing = fix.SpeedMps > 1.5 ? fix.Bearing : null;
+        }
+        else
+        {
+            Map.Here = null;
+            Map.HereBearing = null;
+        }
+        Map.InvalidateVisual();
+    }
+
     private void OnLinesChanged()
     {
+        if (_vm == null) return;
         // A line the control just completed is no longer the active one.
-        if (_vm != null && Map.ActiveLine == null) _vm.ActiveLine = null;
-        if (_vm != null && _vm.ActiveLine == null) _vm.Status = "Drag the round handles to adjust a line. Tap Save when done.";
+        if (Map.ActiveLine == null && _vm.ActiveLine != null)
+        {
+            _vm.ActiveLine = null;
+            _vm.Status = "Drag a handle to adjust a line. Tap Save when done.";
+        }
     }
 
     private void ZoomIn_Click(object? sender, RoutedEventArgs e) => Map.ZoomBy(1);
@@ -49,15 +93,10 @@ public partial class TrackEditorView : ContentPage
 
     private void Here_Click(object? sender, RoutedEventArgs e)
     {
-        if (_vm?.Here is { } here)
-        {
-            Map.Here = here;
-            Map.Center = here;
-        }
-        else if (_vm != null)
-        {
-            _vm.Status = "No GPS position yet.";
-        }
+        ShowPosition();
+        var here = _vm?.Here;
+        if (here != null) Map.Center = here.Value;
+        else if (_vm != null) _vm.Status = "No GPS position yet.";
     }
 
     private async void Save_Click(object? sender, RoutedEventArgs e)

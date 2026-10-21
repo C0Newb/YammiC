@@ -35,14 +35,17 @@ public partial class SettingsViewModel : BikeViewModelBase
     [ObservableProperty]
     public partial string ReelsFolderText { get; set; } = "";
 
-    /// <summary>Called by the view with the folder the system picker returned.</summary>
+    /// <summary>
+    /// Called by the view with the folder the system picker returned.
+    /// </summary>
     public void SetReelsFolder(string folderUri, string? displayName)
     {
         Controller.SetReelsFolder(folderUri, displayName);
         ReelsFolderText = ReelsFolderLabel();
     }
 
-    private string ReelsFolderLabel() => Controller.ReelsFolderName is { Length: > 0 } name ? name : "No folder chosen";
+    private string ReelsFolderLabel() =>
+        string.IsNullOrEmpty(Controller.ReelsFolderName) ? "No folder chosen" : Controller.ReelsFolderName;
 
     [ObservableProperty]
     public partial bool VpbScreenEnabled { get; set; }

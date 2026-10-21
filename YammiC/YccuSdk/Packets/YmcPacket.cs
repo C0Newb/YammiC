@@ -50,6 +50,8 @@ public abstract class YmcPacket
 
     protected static byte[] Concat(params byte[][] arrays) => YmcBikeProtocol.ConcatPackets(arrays);
 
-    /// <summary>First <paramref name="count"/> characters of <paramref name="value"/> (or all of it if shorter).</summary>
+    /// <summary>
+    /// First <paramref name="count"/> characters of <paramref name="value"/> (or all of it if shorter).
+    /// </summary>
     protected static string Take(string value, int count) => value.Length <= count ? value : value[..count];
 }

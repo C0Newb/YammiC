@@ -29,10 +29,14 @@ public static class UiLogFilter
         return codes;
     }
 
-    /// <summary>True when the command code (as it appears on the wire, 2 bytes big-endian) is marked <see cref="SuppressUiLogAttribute"/>.</summary>
+    /// <summary>
+    /// True when the command code (as it appears on the wire, 2 bytes big-endian) is marked <see cref="SuppressUiLogAttribute"/>.
+    /// </summary>
     public static bool IsSuppressed(int commandCode) => SuppressedCodes.Value.Contains(commandCode & 0xFFFF);
 
-    /// <summary>True when the notification belongs to a suppressed command and should not be shown in the UI log.</summary>
+    /// <summary>
+    /// True when the notification belongs to a suppressed command and should not be shown in the UI log.
+    /// </summary>
     public static bool IsSuppressedNotification(Guid characteristic, byte[] value)
     {
         if (characteristic == YmcBikeProtocol.MainRxUuid)
@@ -57,10 +61,14 @@ public static class UiLogFilter
         return characteristic == YmcBikeProtocol.StatusUuid && WritesSuppressed;
     }
 
-    /// <summary>True while a suppressed command is being sent, so its GATT write callbacks stay out of the UI log.</summary>
+    /// <summary>
+    /// True while a suppressed command is being sent, so its GATT write callbacks stay out of the UI log.
+    /// </summary>
     public static bool WritesSuppressed => Volatile.Read(ref _suppressedSends) > 0;
 
-    /// <summary>Marks the send of <paramref name="commandCode"/> in progress; dispose when it is done.</summary>
+    /// <summary>
+    /// Marks the send of <paramref name="commandCode"/> in progress; dispose when it is done.
+    /// </summary>
     public static IDisposable BeginSend(int commandCode)
     {
         if (!IsSuppressed(commandCode)) return NoScope.Instance;

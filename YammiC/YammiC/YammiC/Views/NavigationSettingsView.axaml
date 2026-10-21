@@ -3,7 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:YammiC.ViewModels"
-             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="300"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="700"
              Header="Navigation"
              x:DataType="vm:NavigationSettingsViewModel"
              x:Class="YammiC.Views.NavigationSettingsView">
@@ -11,8 +11,42 @@
         <vm:NavigationSettingsViewModel />
     </Design.DataContext>
 
-    <StackPanel Margin="16" Spacing="12">
-        <ToggleSwitch Content="Navigation screen" IsChecked="{Binding NavigationEnabled}" />
-        <TextBlock Text="{Binding StatusText}" />
-    </StackPanel>
+    <ScrollViewer>
+        <StackPanel Margin="16" Spacing="20">
+            <Border Classes="card">
+                <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Spacing="2" VerticalAlignment="Center">
+                            <TextBlock Text="Navigation screen" />
+                            <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding StatusText}" />
+                        </StackPanel>
+                        <ToggleSwitch Grid.Column="1" OnContent="" OffContent="" IsChecked="{Binding NavigationEnabled}" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <StackPanel Spacing="8">
+                <TextBlock Classes="section" Text="TURN-BY-TURN TEST" />
+                <Border Classes="card">
+                    <StackPanel Spacing="12">
+                        <TextBlock Classes="caption" TextWrapping="Wrap"
+                                   Text="Sends one instruction to the bike's guidance display. Needs the navigation screen open on the bike." />
+                        <ComboBox HorizontalAlignment="Stretch"
+                                  ItemsSource="{x:Static vm:NavigationSettingsViewModel.TurnChoices}"
+                                  SelectedItem="{Binding SelectedTurn}" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <NumericUpDown Minimum="0" Maximum="99999" Increment="50" FormatString="0" Value="{Binding TurnDistance}" />
+                            <ToggleSwitch Grid.Column="1" OnContent="metres" OffContent="feet" IsChecked="{Binding TurnMetric}" />
+                        </Grid>
+                        <TextBox Watermark="Road name" MaxLength="40" Text="{Binding TurnRoad}" />
+                        <WrapPanel>
+                            <Button Classes="chip accent" Content="Send" Command="{Binding SendTurnCommand}" />
+                            <Button Classes="chip" Content="Clear" Command="{Binding ClearTurnCommand}" />
+                        </WrapPanel>
+                        <TextBlock TextWrapping="Wrap" Text="{Binding TurnStatus}" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
 </ContentPage>

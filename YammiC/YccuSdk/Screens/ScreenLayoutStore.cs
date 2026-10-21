@@ -10,7 +10,9 @@ internal partial class ScreenJsonContext : JsonSerializerContext
 {
 }
 
-/// <summary>Saves each target's layout (as JSON) in the platform key-value store; falls back to <see cref="ScreenDefaults"/>.</summary>
+/// <summary>
+/// Saves each target's layout (as JSON) in the platform key-value store; falls back to <see cref="ScreenDefaults"/>.
+/// </summary>
 public sealed class ScreenLayoutStore
 {
     private readonly IYmcKeyValueStore _storage;
@@ -22,7 +24,9 @@ public sealed class ScreenLayoutStore
 
     private static string Key(ScreenTarget target) => target == ScreenTarget.Navigation ? "screen_navigation" : "screen_vpb";
 
-    /// <summary>The saved layout, or null if none was saved or it can't be read (unlike <see cref="Load"/>, never the built-in one).</summary>
+    /// <summary>
+    /// The saved layout, or null if none was saved or it can't be read (unlike <see cref="Load"/>, never the built-in one).
+    /// </summary>
     public ScreenLayout? LoadSaved(ScreenTarget target)
     {
         var json = _storage.GetString(Key(target));
@@ -32,7 +36,9 @@ public sealed class ScreenLayoutStore
         return layout;
     }
 
-    /// <summary>The saved layout, or the default if none was saved or it can't be read. Always a fresh copy.</summary>
+    /// <summary>
+    /// The saved layout, or the default if none was saved or it can't be read. Always a fresh copy.
+    /// </summary>
     public ScreenLayout Load(ScreenTarget target)
     {
         var json = _storage.GetString(Key(target));
@@ -54,13 +60,17 @@ public sealed class ScreenLayoutStore
         _storage.SetString(Key(target), ToJson(layout));
     }
 
-    /// <summary>Forgets the saved layout; <see cref="Load"/> returns the default again.</summary>
+    /// <summary>
+    /// Forgets the saved layout; <see cref="Load"/> returns the default again.
+    /// </summary>
     public void Reset(ScreenTarget target) => _storage.SetString(Key(target), "");
 
     public static string ToJson(ScreenLayout layout) =>
         JsonSerializer.Serialize(layout, ScreenJsonContext.Default.ScreenLayout);
 
-    /// <summary>Parses a layout from JSON (e.g. an imported file); null if it isn't one.</summary>
+    /// <summary>
+    /// Parses a layout from JSON (e.g. an imported file); null if it isn't one.
+    /// </summary>
     public static ScreenLayout? TryParse(string json)
     {
         try

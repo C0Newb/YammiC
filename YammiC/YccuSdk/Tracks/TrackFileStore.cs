@@ -12,7 +12,9 @@ public interface ITrackFileStore
 
     void Write(string folder, string name, string text);
 
-    /// <summary>Adds text to the end of a file (creating it) and flushes, so a crash leaves what was written.</summary>
+    /// <summary>
+    /// Adds text to the end of a file (creating it) and flushes, so a crash leaves what was written.
+    /// </summary>
     void Append(string folder, string name, string text);
 
     void Delete(string folder, string name);

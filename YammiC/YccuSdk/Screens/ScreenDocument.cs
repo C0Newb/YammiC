@@ -26,14 +26,21 @@ public sealed class ScreenDocument
     public ScreenTarget Target { get; set; }
     public List<ScreenPage> Pages { get; } = new();
 
-    /// <summary>Used for an event the current page has no action for.</summary>
+    /// <summary>
+    /// Used for an event the current page has no action for.
+    /// </summary>
     public Dictionary<ScreenEvent, string> DefaultActions { get; } = new();
+
+    /// <summary>
+    /// The road name shown on the bike (a template with {variables}) for a page that has none of its own; null shows nothing.
+    /// </summary>
+    public string? DefaultRoadName { get; set; }
 
     public ScreenPage? Find(string id) => Pages.FirstOrDefault(p => p.Id == id);
 
     public ScreenDocument Clone()
     {
-        var copy = new ScreenDocument { Target = Target };
+        var copy = new ScreenDocument { Target = Target, DefaultRoadName = DefaultRoadName };
         foreach (var page in Pages) copy.Pages.Add(page.Clone());
         foreach (var action in DefaultActions) copy.DefaultActions[action.Key] = action.Value;
         return copy;
@@ -58,6 +65,7 @@ public sealed class ScreenDocument
         var document = new ScreenDocument
         {
             Target = Enum.TryParse<ScreenTarget>(root.Attribute("Target")?.Value, out var target) ? target : ScreenTarget.Navigation,
+            DefaultRoadName = root.Attribute("RoadName")?.Value,
         };
         ReadActions(root, document.DefaultActions);
 
@@ -77,7 +85,13 @@ public sealed class ScreenDocument
             foreach (var declaration in declarations)
                 if (copy.Attribute(declaration.Name) == null) copy.Add(new XAttribute(declaration.Name, declaration.Value));
 
-            var result = new ScreenPage { Id = id, Name = page.Attribute("Name")?.Value ?? id, Xaml = copy.ToString() };
+            var result = new ScreenPage
+            {
+                Id = id,
+                Name = page.Attribute("Name")?.Value ?? id,
+                Xaml = copy.ToString(),
+                RoadName = page.Attribute("RoadName")?.Value,
+            };
             ReadActions(page, result.Actions);
             document.Pages.Add(result);
         }
@@ -94,6 +108,7 @@ public sealed class ScreenDocument
             new XAttribute(XNamespace.Xmlns + "x", XamlNs),
             new XAttribute(XNamespace.Xmlns + "y", WidgetNs),
             new XAttribute("Target", Target.ToString()));
+        if (DefaultRoadName != null) root.SetAttributeValue("RoadName", DefaultRoadName);
         WriteActions(root, DefaultActions);
 
         var shared = new Dictionary<XName, string>
@@ -106,6 +121,7 @@ public sealed class ScreenDocument
         foreach (var page in Pages)
         {
             var element = new XElement(widgets + "Page", new XAttribute("Id", page.Id), new XAttribute("Name", page.Name));
+            if (page.RoadName != null) element.SetAttributeValue("RoadName", page.RoadName);
             WriteActions(element, page.Actions);
 
             var content = XElement.Parse(page.Xaml);

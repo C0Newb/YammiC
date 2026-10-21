@@ -11,14 +11,16 @@ using YammiC.Services;
 
 namespace YammiC.ViewModels;
 
-/// <summary>One ride mode as the bike has it.</summary>
+/// <summary>
+/// One ride mode as the bike has it.
+/// </summary>
 public class BikeModeItem
 {
     public BikeModeItem(YrcProfile profile, Action<BikeModeItem> save)
     {
         Profile = profile;
         Title = string.IsNullOrEmpty(profile.Name) ? YrcNames.Mode(profile.Mode) : $"{profile.Name}  ({YrcNames.Mode(profile.Mode)})";
-        Detail = RideModesViewModel.Describe(profile.Values);
+        Detail = (YrcNames.IsEditable(profile) ? "" : "Built in: cannot be changed on the bike\n") + RideModesViewModel.Describe(profile.Values);
         SaveCommand = new RelayCommand(() => save(this));
     }
 
@@ -28,16 +30,19 @@ public class BikeModeItem
     public IRelayCommand SaveCommand { get; }
 }
 
-/// <summary>One ride mode in the phone's library.</summary>
+/// <summary>
+/// One ride mode in the phone's library.
+/// </summary>
 public partial class LibraryItem : ObservableObject
 {
-    public LibraryItem(SavedRideMode saved, Action<LibraryItem> send, Action<LibraryItem> delete)
+    public LibraryItem(SavedRideMode saved, Action<LibraryItem> send, Action<LibraryItem> delete, Action<LibraryItem> edit)
     {
         Saved = saved;
         Title = string.IsNullOrEmpty(saved.Label) ? saved.Name : saved.Label;
         Detail = $"{YrcNames.Mode(saved.Mode)}, shown as '{saved.Name}'\n{RideModesViewModel.Describe(saved.ToProfile().Values)}";
         SendCommand = new RelayCommand(() => send(this));
         DeleteCommand = new RelayCommand(() => delete(this));
+        EditCommand = new RelayCommand(() => edit(this));
     }
 
     public SavedRideMode Saved { get; }
@@ -45,8 +50,11 @@ public partial class LibraryItem : ObservableObject
     public string Detail { get; }
     public IRelayCommand SendCommand { get; }
     public IRelayCommand DeleteCommand { get; }
+    public IRelayCommand EditCommand { get; }
 
-    /// <summary>Sending changes the bike, so the first tap only arms the button.</summary>
+    /// <summary>
+    /// Sending changes the bike, so the first tap only arms the button.
+    /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SendText))]
     public partial bool IsArmed { get; set; }
@@ -54,7 +62,9 @@ public partial class LibraryItem : ObservableObject
     public string SendText => IsArmed ? "Tap again to change the bike" : "Send to bike";
 }
 
-/// <summary>Ride modes (the Custom and Track profiles): read from the bike, kept in a library, exported, imported, sent back.</summary>
+/// <summary>
+/// Ride modes (the Custom and Track profiles): read from the bike, kept in a library, exported, imported, sent back.
+/// </summary>
 public partial class RideModesViewModel : BikeViewModelBase
 {
     [ObservableProperty]
@@ -92,7 +102,9 @@ public partial class RideModesViewModel : BikeViewModelBase
     {
     }
 
-    /// <summary>Short text for a list of settings: "PWR 3 (1-5), TCS 5 (0-9)".</summary>
+    /// <summary>
+    /// Short text for a list of settings: "PWR 3 (1-5), TCS 5 (0-9)".
+    /// </summary>
     public static string Describe(IEnumerable<YrcValue> values) =>
         string.Join(", ", values.Select(v => v.Max > v.Min
             ? $"{YrcNames.Parameter(v.Kind)} {v.Current} ({v.Min}-{v.Max})"
@@ -174,7 +186,9 @@ public partial class RideModesViewModel : BikeViewModelBase
         }
     }
 
-    /// <summary>Why this entry must not be sent now, or null.</summary>
+    /// <summary>
+    /// Why this entry must not be sent now, or null.
+    /// </summary>
     private string? Check(LibraryItem item)
     {
         var own = ProfileLibrary.Check(item.Saved);
@@ -184,10 +198,14 @@ public partial class RideModesViewModel : BikeViewModelBase
         return problems.Count == 0 ? null : "Not sent: " + string.Join("; ", problems);
     }
 
-    /// <summary>The whole library as the contents of a file.</summary>
+    /// <summary>
+    /// The whole library as the contents of a file.
+    /// </summary>
     public string ExportJson() => Controller.ProfileLibrary.Export();
 
-    /// <summary>Adds the ride modes of a file to the library.</summary>
+    /// <summary>
+    /// Adds the ride modes of a file to the library.
+    /// </summary>
     public void ImportJson(string json)
     {
         Controller.ProfileLibrary.Import(json, out var message);
@@ -207,6 +225,11 @@ public partial class RideModesViewModel : BikeViewModelBase
     private void RefreshLibrary()
     {
         Library.Clear();
-        foreach (var s in Controller.ProfileLibrary.Items) Library.Add(new LibraryItem(s, Send, Delete));
+        foreach (var s in Controller.ProfileLibrary.Items) Library.Add(new LibraryItem(s, Send, Delete, item => EditRequested?.Invoke(item.Saved)));
     }
+
+    /// <summary>
+    /// Raised when a library entry should be edited; the view opens the editor page.
+    /// </summary>
+    public event Action<SavedRideMode>? EditRequested;
 }

@@ -198,6 +198,20 @@ See `docs/` for full reference:
 - `models/` owns all data types.
 - Keep logs explicit so connection failures can be traced to bond, auth, GATT, or notify setup.
 
+## C# Code Style
+
+Applies to the C#/Avalonia port (`YammiC/`). Formatting is CSharpier (`csharpier format <paths>`; format only the files you changed).
+
+- **No `is { }` / `is not { }` property or null patterns.** Write plain `!= null` / `== null` checks instead, and use a local variable (`var x = Foo(); if (x != null) ...`) when the value is needed afterwards. This includes `is { Length: > 0 }` and `is { Kind: ... }` (compare the members explicitly). For a nullable struct, use `.Value` after the null check.
+- **`<summary>` tags go on their own lines**, never `/// <summary>text</summary>` on one line:
+
+  ```csharp
+  /// <summary>
+  /// What this does.
+  /// </summary>
+  ```
+- Keep it readable, not clever: prefer a few clear statements over a dense one-liner.
+
 ## Build
 
 ```bash

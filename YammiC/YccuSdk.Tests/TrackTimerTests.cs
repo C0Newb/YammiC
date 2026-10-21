@@ -14,7 +14,9 @@ internal static class TrackTestData
     public static GeoPoint At(double eastMetres, double northMetres = 0) =>
         new(Lat0 + northMetres / 111194.9, Lon0 + eastMetres / MetresPerDegLon);
 
-    /// <summary>A vertical line (north-south, 20 m long) at the given distance east of the origin.</summary>
+    /// <summary>
+    /// A vertical line (north-south, 20 m long) at the given distance east of the origin.
+    /// </summary>
     public static TrackLine VerticalLine(double eastMetres) => new(At(eastMetres, -10), At(eastMetres, 10));
 
     public static Track Circuit(int sectorLines = 1)
@@ -30,7 +32,9 @@ internal static class TrackTestData
         return new GpsFix(new DateTime(2026, 10, 20, 12, 0, 0, DateTimeKind.Utc).AddSeconds(seconds), p.Lat, p.Lon, 20, 90, accuracy, (long)(seconds * 1e9));
     }
 
-    /// <summary>One lap's worth of fixes starting just before the start line at <paramref name="t"/>: start line at t+0.5, sector at t+9.5, finish at t+11.5.</summary>
+    /// <summary>
+    /// One lap's worth of fixes starting just before the start line at <paramref name="t"/>: start line at t+0.5, sector at t+9.5, finish at t+11.5.
+    /// </summary>
     public static IEnumerable<GpsFix> Lap(double t)
     {
         yield return Fix(t, -5);

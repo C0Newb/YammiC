@@ -1,45 +1,46 @@
 namespace CNCO.YccuSdk.Screens;
 
-/// <summary>The layouts used until the user saves their own.</summary>
+/// <summary>
+/// The layouts used until the user saves their own.
+/// </summary>
 public static class ScreenDefaults
 {
     public static ScreenLayout For(ScreenTarget target) =>
         target == ScreenTarget.Navigation ? Navigation() : VirtualPitBoard();
 
-    /// <summary>The built-in screen for <paramref name="target"/> as a document: the navigation display gets the now-playing page.</summary>
+    /// <summary>
+    /// The built-in screen for <paramref name="target"/> as a document: the navigation display gets the now-playing page.
+    /// </summary>
     public static ScreenDocument Document(ScreenTarget target) =>
         target == ScreenTarget.Navigation ? ScreenDocument.Parse(NowPlayingAxaml) : ScreenLayoutMigration.ToDocument(For(target));
 
     /// <summary>
-    /// Track details on the left, album art on the right (a note shows through while the track has none), a progress bar along
-    /// the bottom, and "No music playing" when nothing plays. The zoom buttons skip tracks. Day and night colours.
+    /// Artist and album on the left (wrapped), album art on the right (a note shows through while the track has none) with room
+    /// above the progress bar along the bottom, and "No music playing" when nothing plays. The song title is the road name the
+    /// bike shows. The zoom buttons skip tracks. Day and night colours.
     /// </summary>
     private const string NowPlayingAxaml = """
         <y:ScreenDocument xmlns="https://github.com/avaloniaui"
                           xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                           xmlns:y="clr-namespace:CNCO.YammiC.Screens;assembly=YammiC"
-                          Target="Navigation" ZoomIn="Media.Next" ZoomOut="Media.Previous">
+                          Target="Navigation" ZoomIn="Media.Next" ZoomOut="Media.Previous" RoadName="{song}">
           <y:Page Id="main" Name="Now playing">
             <y:ScreenCanvas Width="480" Height="240" Background="#F4F4F2" NightBackground="#000000">
-              <y:ScreenBox Tag="Art placeholder" Canvas.Left="262" Canvas.Top="22" Width="196" Height="196"
+              <y:ScreenBox Tag="Art placeholder" Canvas.Left="262" Canvas.Top="12" Width="196" Height="196"
                            Background="#E0E0DC" NightBackground="#202124" IsVisible="{Binding HasMusic}">
                 <y:VarText Template="♪" FontSize="96" Foreground="#B8B8B2" NightForeground="#3C4043"
                            TextAlignment="Center" VerticalAlignment="Center" />
               </y:ScreenBox>
-              <y:ScreenBox Tag="Album art" Canvas.Left="262" Canvas.Top="22" Width="196" Height="196" IsVisible="{Binding HasMusic}">
+              <y:ScreenBox Tag="Album art" Canvas.Left="262" Canvas.Top="12" Width="196" Height="196" IsVisible="{Binding HasMusic}">
                 <y:ScreenImage Origin="AlbumArt" Stretch="UniformToFill" />
               </y:ScreenBox>
-              <y:ScreenBox Tag="Song" Canvas.Left="20" Canvas.Top="30" Width="230" Height="84" IsVisible="{Binding HasMusic}">
-                <y:VarText Template="{}{song}" FontSize="30" FontWeight="Bold" Foreground="#111111" NightForeground="#FFFFFF"
-                           TextAlignment="Left" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" VerticalAlignment="Top" />
+              <y:ScreenBox Tag="Artist" Canvas.Left="20" Canvas.Top="24" Width="230" Height="76" IsVisible="{Binding HasMusic}">
+                <y:VarText Template="{}{artist}" FontSize="28" FontWeight="Bold" Foreground="#111111" NightForeground="#FFFFFF"
+                           TextAlignment="Left" Overflow="Wrap" MaxLines="2" VerticalAlignment="Top" />
               </y:ScreenBox>
-              <y:ScreenBox Tag="Artist" Canvas.Left="20" Canvas.Top="120" Width="230" Height="32" IsVisible="{Binding HasMusic}">
-                <y:VarText Template="{}{artist}" FontSize="22" FontWeight="Normal" Foreground="#5F6368" NightForeground="#9AA0A6"
-                           TextAlignment="Left" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-              </y:ScreenBox>
-              <y:ScreenBox Tag="Album" Canvas.Left="20" Canvas.Top="152" Width="230" Height="28" IsVisible="{Binding HasMusic}">
-                <y:VarText Template="{}{album}" FontSize="18" FontWeight="Normal" Foreground="#80868B" NightForeground="#7C8086"
-                           TextAlignment="Left" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+              <y:ScreenBox Tag="Album" Canvas.Left="20" Canvas.Top="106" Width="230" Height="64" IsVisible="{Binding HasMusic}">
+                <y:VarText Template="{}{album}" FontSize="20" FontWeight="Normal" Foreground="#5F6368" NightForeground="#9AA0A6"
+                           TextAlignment="Left" Overflow="Wrap" MaxLines="2" VerticalAlignment="Top" />
               </y:ScreenBox>
               <y:ScreenBox Tag="Time" Canvas.Left="20" Canvas.Top="186" Width="230" Height="24" IsVisible="{Binding HasMusic}">
                 <y:VarText Template="{}{elapsed} / {duration}" FontSize="18" FontWeight="Normal" Foreground="#5F6368" NightForeground="#9AA0A6"
@@ -57,7 +58,9 @@ public static class ScreenDefaults
         </y:ScreenDocument>
         """;
 
-    /// <summary>Clock, divider, and now-playing (or "No music playing"). Day and night colours.</summary>
+    /// <summary>
+    /// Clock, divider, and now-playing (or "No music playing"). Day and night colours.
+    /// </summary>
     public static ScreenLayout Navigation() => new()
     {
         Name = "Clock and music",

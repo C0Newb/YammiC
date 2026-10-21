@@ -6,7 +6,9 @@ using AndroidLocation = Android.Locations.Location;
 
 namespace CNCO.YccuSdk.Platform.Droid;
 
-/// <summary>Track and session files in the app's own folder (no storage permission needed).</summary>
+/// <summary>
+/// Track and session files in the app's own folder (no storage permission needed).
+/// </summary>
 public sealed class AndroidTrackFileStore : ITrackFileStore
 {
     private readonly string _root;
@@ -54,10 +56,14 @@ public sealed class AndroidTrackFileStore : ITrackFileStore
     }
 }
 
-/// <summary>GPS fixes from the platform location manager (GPS provider only, so no Google Play Services are needed).</summary>
+/// <summary>
+/// GPS fixes from the platform location manager (GPS provider only, so no Google Play Services are needed).
+/// </summary>
 public sealed class AndroidLocationSource : ILocationSource
 {
-    /// <summary>Set by the Activity: asks the user for location access (true = the "all the time" step).</summary>
+    /// <summary>
+    /// Set by the Activity: asks the user for location access (true = the "all the time" step).
+    /// </summary>
     public static Action<bool>? PermissionRequester { get; set; }
 
     private readonly Context _context;
@@ -151,7 +157,9 @@ public sealed class AndroidLocationSource : ILocationSource
     }
 }
 
-/// <summary>A short buzz when a session is armed.</summary>
+/// <summary>
+/// A short buzz when a session is armed.
+/// </summary>
 public sealed class AndroidVibrator : IVibrator
 {
     private readonly Context _context;

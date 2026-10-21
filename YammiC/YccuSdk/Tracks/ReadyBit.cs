@@ -4,7 +4,9 @@ namespace CNCO.YccuSdk.Tracks;
 
 public enum ReadyBitState
 {
-    /// <summary>No fresh data: do not act on it.</summary>
+    /// <summary>
+    /// No fresh data: do not act on it.
+    /// </summary>
     Unknown,
     NotReady,
     Ready,

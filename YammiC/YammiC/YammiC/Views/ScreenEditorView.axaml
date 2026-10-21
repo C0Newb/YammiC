@@ -124,6 +124,12 @@
                                                   ItemsSource="{x:Static vm:ScreenEditorViewModel.Aligns}"
                                                   SelectedItem="{Binding SelAlign}" />
                                     </Grid>
+                                    <Grid ColumnDefinitions="110,*">
+                                        <TextBlock VerticalAlignment="Center" Text="Long text" />
+                                        <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+                                                  ItemsSource="{x:Static vm:ScreenEditorViewModel.Overflows}"
+                                                  SelectedItem="{Binding SelOverflow}" />
+                                    </Grid>
                                     <Grid ColumnDefinitions="110,*,28" ColumnSpacing="8">
                                         <TextBlock VerticalAlignment="Center" Text="Colour" />
                                         <TextBox Grid.Column="1" Text="{Binding SelColor}" PlaceholderText="#RRGGBB" />
@@ -237,6 +243,22 @@
                                     <TextBlock VerticalAlignment="Center" Text="Zoom out button" />
                                     <TextBox Grid.Column="1" Text="{Binding PageZoomOut}" PlaceholderText="screen default" />
                                 </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Classes="card" IsVisible="{Binding ShowsRoadName}">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="subtitle" Text="Road name on the bike" />
+                                <Grid ColumnDefinitions="130,*">
+                                    <TextBlock VerticalAlignment="Center" Text="This page" />
+                                    <TextBox Grid.Column="1" Text="{Binding PageRoadName}" PlaceholderText="screen default" />
+                                </Grid>
+                                <Grid ColumnDefinitions="130,*">
+                                    <TextBlock VerticalAlignment="Center" Text="Whole screen" />
+                                    <TextBox Grid.Column="1" Text="{Binding DefaultRoadName}" PlaceholderText="nothing" />
+                                </Grid>
+                                <TextBlock Opacity="0.7" TextWrapping="Wrap"
+                                           Text="Text for the bike's road name line. Use {song}, {artist}, {album}, {elapsed} and the other variables, e.g. {artist} - {song}. A single space shows nothing. The bike keeps about 60 letters." />
                             </StackPanel>
                         </Border>
 

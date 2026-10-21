@@ -14,7 +14,9 @@ public static class ScreenRenderer
     // redraws every minute doesn't decode its pictures every time.
     private static readonly ConditionalWeakTable<string, SKBitmap?> ImageCache = new();
 
-    /// <summary>Renders at <paramref name="width"/> x <paramref name="height"/>, scaling the layout's design space to fit.</summary>
+    /// <summary>
+    /// Renders at <paramref name="width"/> x <paramref name="height"/>, scaling the layout's design space to fit.
+    /// </summary>
     public static SKBitmap Render(ScreenLayout layout, ScreenContext context, int width, int height)
     {
         var (designWidth, designHeight) = ScreenSizes.DesignSize(layout.Target);
@@ -147,7 +149,9 @@ public static class ScreenRenderer
         return decoded;
     }
 
-    /// <summary>The system sans typeface, or - when it lacks a glyph the text needs (e.g. the play symbol) - one that has it.</summary>
+    /// <summary>
+    /// The system sans typeface, or - when it lacks a glyph the text needs (e.g. the play symbol) - one that has it.
+    /// </summary>
     private static SKTypeface ResolveTypeface(bool bold, string text)
     {
         var typeface = SKTypeface.FromFamilyName(null, bold ? SKFontStyle.Bold : SKFontStyle.Normal) ?? SKTypeface.Default;
@@ -165,7 +169,9 @@ public static class ScreenRenderer
         return typeface;
     }
 
-    /// <summary>Trims <paramref name="text"/> with "..." so it fits <paramref name="maxWidth"/> pixels.</summary>
+    /// <summary>
+    /// Trims <paramref name="text"/> with "..." so it fits <paramref name="maxWidth"/> pixels.
+    /// </summary>
     private static string Fit(string text, SKFont font, float maxWidth)
     {
         if (font.MeasureText(text) <= maxWidth) return text;

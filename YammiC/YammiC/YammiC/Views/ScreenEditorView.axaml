@@ -31,7 +31,7 @@
                 <StackPanel Spacing="8">
                     <c:ScreenCanvas x:Name="Canvas" />
                     <TextBlock Opacity="0.7" TextWrapping="Wrap"
-                               Text="Drag a box to move it, drag a corner square to resize. Only the part the bike shows is drawn, and boxes stay inside it." />
+                               Text="Drag a box to move it, drag a corner square to resize it. Only the part the bike shows is drawn, and boxes stay inside it." />
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
                         <ToggleSwitch Content="Night" IsChecked="{Binding PreviewNight}" />
                         <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
@@ -46,133 +46,234 @@
         <ScrollViewer Grid.Row="1">
         <StackPanel Margin="16" Spacing="12">
 
-            <!-- Elements -->
-            <Border Classes="card">
-                <StackPanel Spacing="8">
-                    <TextBlock Classes="subtitle" Text="Elements" />
-                    <WrapPanel>
-                        <Button Margin="0,0,8,8" Content="Add text" Command="{Binding AddTextCommand}" />
-                        <Button Margin="0,0,8,8" Content="Add image..." Click="AddImage_Click" />
-                        <Button Margin="0,0,8,8" Content="Duplicate" IsEnabled="{Binding HasSelection}" Command="{Binding DuplicateElementCommand}" />
-                        <Button Margin="0,0,8,8" Content="Delete" IsEnabled="{Binding HasSelection}" Command="{Binding DeleteElementCommand}" />
-                        <Button Margin="0,0,8,8" Content="Forward" IsEnabled="{Binding HasSelection}" Command="{Binding MoveForwardCommand}" />
-                        <Button Margin="0,0,8,8" Content="Back" IsEnabled="{Binding HasSelection}" Command="{Binding MoveBackwardCommand}" />
-                    </WrapPanel>
-                    <ListBox MaxHeight="180"
-                             ItemsSource="{Binding Items}"
-                             SelectedItem="{Binding SelectedItem}">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate x:DataType="vm:ScreenElementItem">
-                                <Grid ColumnDefinitions="*,Auto">
-                                    <TextBlock Text="{Binding Title}" />
-                                    <TextBlock Grid.Column="1" Opacity="0.6" Text="{Binding Kind}" />
+            <TabControl SelectedIndex="{Binding SelectedTab}">
+
+                <!-- Design: the elements of the selected page -->
+                <TabItem Header="Design">
+                    <StackPanel Spacing="12" Margin="0,8,0,0">
+
+                        <Border Classes="card">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="subtitle" Text="Elements" />
+                                <WrapPanel>
+                                    <Button Margin="0,0,8,8" Content="Add text" Command="{Binding AddTextCommand}" />
+                                    <Button Margin="0,0,8,8" Content="Add box" Command="{Binding AddBoxCommand}" />
+                                    <Button Margin="0,0,8,8" Content="Add progress" Command="{Binding AddProgressCommand}" />
+                                    <Button Margin="0,0,8,8" Content="Add image..." Click="AddImage_Click" />
+                                    <Button Margin="0,0,8,8" Content="Add album art" Command="{Binding AddAlbumArtCommand}" />
+                                    <Button Margin="0,0,8,8" Content="Duplicate" IsEnabled="{Binding HasSelection}" Command="{Binding DuplicateElementCommand}" />
+                                    <Button Margin="0,0,8,8" Content="Delete" IsEnabled="{Binding HasSelection}" Command="{Binding DeleteElementCommand}" />
+                                    <Button Margin="0,0,8,8" Content="Forward" IsEnabled="{Binding HasSelection}" Command="{Binding MoveForwardCommand}" />
+                                    <Button Margin="0,0,8,8" Content="Back" IsEnabled="{Binding HasSelection}" Command="{Binding MoveBackwardCommand}" />
+                                </WrapPanel>
+                                <ListBox MaxHeight="180"
+                                         ItemsSource="{Binding Items}"
+                                         SelectedItem="{Binding SelectedItem}">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:ElementItem">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <TextBlock Text="{Binding Title}" />
+                                                <TextBlock Grid.Column="1" Opacity="0.6" Text="{Binding Kind}" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Selected element -->
+                        <Border Classes="card" IsVisible="{Binding HasSelection}">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="subtitle" Text="Selected element" />
+
+                                <Grid ColumnDefinitions="110,*">
+                                    <TextBlock VerticalAlignment="Center" Text="Name" />
+                                    <TextBox Grid.Column="1" Text="{Binding SelName}" />
                                 </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </StackPanel>
-            </Border>
+                                <Grid ColumnDefinitions="110,*,*" ColumnSpacing="8">
+                                    <TextBlock VerticalAlignment="Center" Text="Position X / Y" />
+                                    <TextBox Grid.Column="1" Text="{Binding SelX}" />
+                                    <TextBox Grid.Column="2" Text="{Binding SelY}" />
+                                </Grid>
+                                <Grid ColumnDefinitions="110,*,*" ColumnSpacing="8">
+                                    <TextBlock VerticalAlignment="Center" Text="Size W / H" />
+                                    <TextBox Grid.Column="1" Text="{Binding SelWidth}" />
+                                    <TextBox Grid.Column="2" Text="{Binding SelHeight}" />
+                                </Grid>
+                                <Grid ColumnDefinitions="110,*">
+                                    <TextBlock VerticalAlignment="Center" Text="Show when" />
+                                    <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+                                              ItemsSource="{x:Static vm:ScreenEditorViewModel.ShowWhens}"
+                                              SelectedItem="{Binding SelShowWhen}" />
+                                </Grid>
 
-            <!-- Selected element -->
-            <Border Classes="card" IsVisible="{Binding HasSelection}">
-                <StackPanel Spacing="8">
-                    <TextBlock Classes="subtitle" Text="Selected element" />
+                                <!-- Text -->
+                                <StackPanel Spacing="8" IsVisible="{Binding IsTextSelected}">
+                                    <Grid ColumnDefinitions="110,*">
+                                        <TextBlock VerticalAlignment="Center" Text="Text" />
+                                        <TextBox Grid.Column="1" Text="{Binding SelText}" PlaceholderText="e.g. {artist} - {song}" />
+                                    </Grid>
+                                    <Grid ColumnDefinitions="110,*,Auto" ColumnSpacing="8">
+                                        <TextBlock VerticalAlignment="Center" Text="Font size" />
+                                        <TextBox Grid.Column="1" Text="{Binding SelFontSize}" />
+                                        <ToggleSwitch Grid.Column="2" OnContent="Bold" OffContent="Bold" IsChecked="{Binding SelBold}" />
+                                    </Grid>
+                                    <Grid ColumnDefinitions="110,*">
+                                        <TextBlock VerticalAlignment="Center" Text="Align" />
+                                        <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+                                                  ItemsSource="{x:Static vm:ScreenEditorViewModel.Aligns}"
+                                                  SelectedItem="{Binding SelAlign}" />
+                                    </Grid>
+                                    <Grid ColumnDefinitions="110,*,28" ColumnSpacing="8">
+                                        <TextBlock VerticalAlignment="Center" Text="Colour" />
+                                        <TextBox Grid.Column="1" Text="{Binding SelColor}" PlaceholderText="#RRGGBB" />
+                                        <Border Grid.Column="2" Height="28" CornerRadius="4" Background="{Binding SelColor}" />
+                                    </Grid>
+                                    <Grid ColumnDefinitions="110,*,28" ColumnSpacing="8">
+                                        <TextBlock VerticalAlignment="Center" Text="Night colour" />
+                                        <TextBox Grid.Column="1" Text="{Binding SelNightColor}" PlaceholderText="same as day" />
+                                        <Border Grid.Column="2" Height="28" CornerRadius="4" Background="{Binding SelNightColor}" />
+                                    </Grid>
+                                </StackPanel>
 
-                    <Grid ColumnDefinitions="110,*">
-                        <TextBlock VerticalAlignment="Center" Text="Name" />
-                        <TextBox Grid.Column="1" Text="{Binding SelName}" />
-                    </Grid>
-                    <Grid ColumnDefinitions="110,*,*" ColumnSpacing="8">
-                        <TextBlock VerticalAlignment="Center" Text="Position X / Y" />
-                        <TextBox Grid.Column="1" Text="{Binding SelX}" />
-                        <TextBox Grid.Column="2" Text="{Binding SelY}" />
-                    </Grid>
-                    <Grid ColumnDefinitions="110,*,*" ColumnSpacing="8">
-                        <TextBlock VerticalAlignment="Center" Text="Size W / H" />
-                        <TextBox Grid.Column="1" Text="{Binding SelWidth}" />
-                        <TextBox Grid.Column="2" Text="{Binding SelHeight}" />
-                    </Grid>
-                    <Grid ColumnDefinitions="110,*">
-                        <TextBlock VerticalAlignment="Center" Text="Show when" />
-                        <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
-                                  ItemsSource="{x:Static vm:ScreenEditorViewModel.ShowWhens}"
-                                  SelectedItem="{Binding SelShowWhen}" />
-                    </Grid>
+                                <!-- Progress bar colours -->
+                                <Grid ColumnDefinitions="110,*,28" ColumnSpacing="8" IsVisible="{Binding IsProgressSelected}">
+                                    <TextBlock VerticalAlignment="Center" Text="Bar colour" />
+                                    <TextBox Grid.Column="1" Text="{Binding SelColor}" PlaceholderText="#RRGGBB" />
+                                    <Border Grid.Column="2" Height="28" CornerRadius="4" Background="{Binding SelColor}" />
+                                </Grid>
+                                <Grid ColumnDefinitions="110,*,28" ColumnSpacing="8" IsVisible="{Binding IsProgressSelected}">
+                                    <TextBlock VerticalAlignment="Center" Text="Night bar colour" />
+                                    <TextBox Grid.Column="1" Text="{Binding SelNightColor}" PlaceholderText="same as day" />
+                                    <Border Grid.Column="2" Height="28" CornerRadius="4" Background="{Binding SelNightColor}" />
+                                </Grid>
 
-                    <!-- Text -->
-                    <StackPanel Spacing="8" IsVisible="{Binding IsTextSelected}">
-                        <Grid ColumnDefinitions="110,*">
-                            <TextBlock VerticalAlignment="Center" Text="Text" />
-                            <TextBox Grid.Column="1" Text="{Binding SelText}" PlaceholderText="e.g. {artist} - {song}" />
-                        </Grid>
-                        <Grid ColumnDefinitions="110,*,Auto" ColumnSpacing="8">
-                            <TextBlock VerticalAlignment="Center" Text="Font size" />
-                            <TextBox Grid.Column="1" Text="{Binding SelFontSize}" />
-                            <ToggleSwitch Grid.Column="2" OnContent="Bold" OffContent="Bold" IsChecked="{Binding SelBold}" />
-                        </Grid>
-                        <Grid ColumnDefinitions="110,*">
-                            <TextBlock VerticalAlignment="Center" Text="Align" />
-                            <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
-                                      ItemsSource="{x:Static vm:ScreenEditorViewModel.Aligns}"
-                                      SelectedItem="{Binding SelAlign}" />
-                        </Grid>
-                        <Grid ColumnDefinitions="110,*,28" ColumnSpacing="8">
-                            <TextBlock VerticalAlignment="Center" Text="Colour" />
-                            <TextBox Grid.Column="1" Text="{Binding SelColor}" PlaceholderText="#RRGGBB" />
-                            <Border Grid.Column="2" Height="28" CornerRadius="4" Background="{Binding SelColor}" />
-                        </Grid>
-                        <Grid ColumnDefinitions="110,*,28" ColumnSpacing="8">
-                            <TextBlock VerticalAlignment="Center" Text="Night colour" />
-                            <TextBox Grid.Column="1" Text="{Binding SelNightColor}" PlaceholderText="same as day" />
-                            <Border Grid.Column="2" Height="28" CornerRadius="4" Background="{Binding SelNightColor}" />
-                        </Grid>
+                                <!-- Fill (boxes, text boxes, image backgrounds; the track of a progress bar) -->
+                                <Grid ColumnDefinitions="110,*,28" ColumnSpacing="8" IsVisible="{Binding HasFill}">
+                                    <TextBlock VerticalAlignment="Center" Text="Fill" />
+                                    <TextBox Grid.Column="1" Text="{Binding SelBackground}" PlaceholderText="none" />
+                                    <Border Grid.Column="2" Height="28" CornerRadius="4" Background="{Binding SelBackground}" />
+                                </Grid>
+                                <Grid ColumnDefinitions="110,*,28" ColumnSpacing="8">
+                                    <TextBlock VerticalAlignment="Center" Text="Night fill" />
+                                    <TextBox Grid.Column="1" Text="{Binding SelNightBackground}" PlaceholderText="same as day" />
+                                    <Border Grid.Column="2" Height="28" CornerRadius="4" Background="{Binding SelNightBackground}" />
+                                </Grid>
+
+                                <!-- Image -->
+                                <StackPanel Spacing="8" IsVisible="{Binding IsImageSelected}">
+                                    <Grid ColumnDefinitions="110,*">
+                                        <TextBlock VerticalAlignment="Center" Text="Picture" />
+                                        <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+                                                  ItemsSource="{x:Static vm:ScreenEditorViewModel.Origins}"
+                                                  SelectedItem="{Binding SelOrigin}" />
+                                    </Grid>
+                                    <Grid ColumnDefinitions="110,*">
+                                        <TextBlock VerticalAlignment="Center" Text="Fit" />
+                                        <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+                                                  ItemsSource="{x:Static vm:ScreenEditorViewModel.Fits}"
+                                                  SelectedItem="{Binding SelFit}" />
+                                    </Grid>
+                                    <Button Content="Change image..." Click="ChangeImage_Click" IsVisible="{Binding IsEmbeddedImageSelected}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Page background -->
+                        <Border Classes="card">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="subtitle" Text="Page background" />
+                                <Grid ColumnDefinitions="110,*,28" ColumnSpacing="8">
+                                    <TextBlock VerticalAlignment="Center" Text="Background" />
+                                    <TextBox Grid.Column="1" Text="{Binding PageBackground}" PlaceholderText="#RRGGBB" />
+                                    <Border Grid.Column="2" Height="28" CornerRadius="4" Background="{Binding PageBackground}" />
+                                </Grid>
+                                <Grid ColumnDefinitions="110,*,28" ColumnSpacing="8">
+                                    <TextBlock VerticalAlignment="Center" Text="Night background" />
+                                    <TextBox Grid.Column="1" Text="{Binding PageNightBackground}" PlaceholderText="same as day" />
+                                    <Border Grid.Column="2" Height="28" CornerRadius="4" Background="{Binding PageNightBackground}" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
+                </TabItem>
 
-                    <!-- Fill (text boxes and image backgrounds) -->
-                    <Grid ColumnDefinitions="110,*,28" ColumnSpacing="8">
-                        <TextBlock VerticalAlignment="Center" Text="Fill" />
-                        <TextBox Grid.Column="1" Text="{Binding SelBackground}" PlaceholderText="none" />
-                        <Border Grid.Column="2" Height="28" CornerRadius="4" Background="{Binding SelBackground}" />
-                    </Grid>
-                    <Grid ColumnDefinitions="110,*,28" ColumnSpacing="8">
-                        <TextBlock VerticalAlignment="Center" Text="Night fill" />
-                        <TextBox Grid.Column="1" Text="{Binding SelNightBackground}" PlaceholderText="same as day" />
-                        <Border Grid.Column="2" Height="28" CornerRadius="4" Background="{Binding SelNightBackground}" />
-                    </Grid>
+                <!-- Pages and what the bike's buttons do -->
+                <TabItem Header="Pages">
+                    <StackPanel Spacing="12" Margin="0,8,0,0">
+                        <Border Classes="card">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="subtitle" Text="Pages" />
+                                <ListBox MaxHeight="160"
+                                         ItemsSource="{Binding Pages}"
+                                         SelectedItem="{Binding SelectedPage}">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:PageItem">
+                                            <TextBlock Text="{Binding Title}" />
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                                <WrapPanel>
+                                    <Button Margin="0,0,8,8" Content="Add page" Command="{Binding AddPageCommand}" />
+                                    <Button Margin="0,0,8,8" Content="Delete page" Command="{Binding DeletePageCommand}" />
+                                    <Button Margin="0,0,8,8" Content="Move up" Command="{Binding MovePageUpCommand}" />
+                                    <Button Margin="0,0,8,8" Content="Move down" Command="{Binding MovePageDownCommand}" />
+                                </WrapPanel>
+                                <Grid ColumnDefinitions="130,*">
+                                    <TextBlock VerticalAlignment="Center" Text="Page name" />
+                                    <TextBox Grid.Column="1" Text="{Binding PageName}" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
 
-                    <!-- Image -->
-                    <StackPanel Spacing="8" IsVisible="{Binding IsImageSelected}">
-                        <Grid ColumnDefinitions="110,*">
-                            <TextBlock VerticalAlignment="Center" Text="Fit" />
-                            <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
-                                      ItemsSource="{x:Static vm:ScreenEditorViewModel.Fits}"
-                                      SelectedItem="{Binding SelFit}" />
-                        </Grid>
-                        <Button Content="Change image..." Click="ChangeImage_Click" />
+                        <Border Classes="card">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="subtitle" Text="This page: bike buttons" />
+                                <Grid ColumnDefinitions="130,*">
+                                    <TextBlock VerticalAlignment="Center" Text="Zoom in button" />
+                                    <TextBox Grid.Column="1" Text="{Binding PageZoomIn}" PlaceholderText="screen default" />
+                                </Grid>
+                                <Grid ColumnDefinitions="130,*">
+                                    <TextBlock VerticalAlignment="Center" Text="Zoom out button" />
+                                    <TextBox Grid.Column="1" Text="{Binding PageZoomOut}" PlaceholderText="screen default" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Classes="card">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="subtitle" Text="Whole screen: bike buttons" />
+                                <Grid ColumnDefinitions="130,*">
+                                    <TextBlock VerticalAlignment="Center" Text="Zoom in button" />
+                                    <TextBox Grid.Column="1" Text="{Binding DefaultZoomIn}" PlaceholderText="nothing" />
+                                </Grid>
+                                <Grid ColumnDefinitions="130,*">
+                                    <TextBlock VerticalAlignment="Center" Text="Zoom out button" />
+                                    <TextBox Grid.Column="1" Text="{Binding DefaultZoomOut}" PlaceholderText="nothing" />
+                                </Grid>
+                                <TextBlock Opacity="0.7" TextWrapping="Wrap" Text="{x:Static vm:ScreenEditorViewModel.ActionHelp}" />
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
-                </StackPanel>
-            </Border>
+                </TabItem>
 
-            <!-- Screen background -->
-            <Border Classes="card">
-                <StackPanel Spacing="8">
-                    <TextBlock Classes="subtitle" Text="Screen" />
-                    <Grid ColumnDefinitions="110,*">
-                        <TextBlock VerticalAlignment="Center" Text="Name" />
-                        <TextBox Grid.Column="1" Text="{Binding LayoutName}" />
-                    </Grid>
-                    <Grid ColumnDefinitions="110,*,28" ColumnSpacing="8">
-                        <TextBlock VerticalAlignment="Center" Text="Background" />
-                        <TextBox Grid.Column="1" Text="{Binding LayoutBackground}" PlaceholderText="#RRGGBB" />
-                        <Border Grid.Column="2" Height="28" CornerRadius="4" Background="{Binding LayoutBackground}" />
-                    </Grid>
-                    <Grid ColumnDefinitions="110,*,28" ColumnSpacing="8">
-                        <TextBlock VerticalAlignment="Center" Text="Night background" />
-                        <TextBox Grid.Column="1" Text="{Binding LayoutNightBackground}" PlaceholderText="same as day" />
-                        <Border Grid.Column="2" Height="28" CornerRadius="4" Background="{Binding LayoutNightBackground}" />
-                    </Grid>
-                </StackPanel>
-            </Border>
+                <!-- The whole screen as AXAML -->
+                <TabItem Header="Code">
+                    <StackPanel Spacing="8" Margin="0,8,0,0">
+                        <TextBox AcceptsReturn="True" TextWrapping="NoWrap" MinHeight="320"
+                                 FontFamily="Consolas,Menlo,monospace" FontSize="12"
+                                 Text="{Binding Code}" />
+                        <Button Content="Check" Command="{Binding CheckCodeCommand}" />
+                        <ItemsControl ItemsSource="{Binding Issues}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <TextBlock Foreground="IndianRed" TextWrapping="Wrap" Text="{Binding}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </TabItem>
+            </TabControl>
 
             <!-- Save / load -->
             <WrapPanel>

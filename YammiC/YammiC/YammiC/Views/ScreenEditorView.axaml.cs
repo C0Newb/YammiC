@@ -18,26 +18,22 @@ public partial class ScreenEditorView : ContentPage
         InitializeComponent();
 
         Canvas.SelectionChanged += element => _vm?.Select(element);
-        Canvas.ElementChanged += element => _vm?.OnElementDragged(element);
+        Canvas.BoundsDragged += (element, x, y, w, h) => _vm?.OnBoundsDragged(element, x, y, w, h);
         DataContextChanged += (_, _) => Attach(DataContext as ScreenEditorViewModel);
     }
 
     private void Attach(ScreenEditorViewModel? vm)
     {
-        if (_vm != null)
-        {
-            _vm.PropertyChanged -= OnViewModelPropertyChanged;
-            _vm.LayoutChanged -= Canvas.Refresh;
-        }
+        if (_vm != null) _vm.PropertyChanged -= OnViewModelPropertyChanged;
 
         _vm = vm;
         if (vm == null) return;
 
         vm.PropertyChanged += OnViewModelPropertyChanged;
-        vm.LayoutChanged += Canvas.Refresh;
-        Canvas.Layout = vm.Layout;
-        Canvas.Context = vm.PreviewContext;
-        Canvas.Selected = vm.SelectedItem?.Element;
+        Canvas.Target = vm.Target;
+        Canvas.Elements = vm.PreviewElements;
+        Canvas.Preview = vm.Preview;
+        Canvas.Selected = vm.SelectedElement;
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -45,14 +41,18 @@ public partial class ScreenEditorView : ContentPage
         if (_vm == null) return;
         switch (e.PropertyName)
         {
-            case nameof(ScreenEditorViewModel.Layout):
-                Canvas.Layout = _vm.Layout;
+            case nameof(ScreenEditorViewModel.Target):
+                Canvas.Target = _vm.Target;
                 break;
-            case nameof(ScreenEditorViewModel.PreviewContext):
-                Canvas.Context = _vm.PreviewContext;
+            case nameof(ScreenEditorViewModel.PreviewElements):
+                Canvas.Elements = _vm.PreviewElements;
+                Canvas.Refresh();
                 break;
-            case nameof(ScreenEditorViewModel.SelectedItem):
-                Canvas.Selected = _vm.SelectedItem?.Element;
+            case nameof(ScreenEditorViewModel.Preview):
+                Canvas.Preview = _vm.Preview;
+                break;
+            case nameof(ScreenEditorViewModel.SelectedElement):
+                Canvas.Selected = _vm.SelectedElement;
                 break;
         }
     }
@@ -88,10 +88,10 @@ public partial class ScreenEditorView : ContentPage
         _vm.ReplaceImage(picked.Data);
     }
 
-    private static readonly FilePickerFileType LayoutFileType = new("Screen layout")
+    private static readonly FilePickerFileType ScreenFileType = new("Screen (AXAML)")
     {
-        Patterns = ["*.json"],
-        MimeTypes = ["application/json"],
+        Patterns = ["*.axaml", "*.xml"],
+        MimeTypes = ["application/xml", "text/xml"],
     };
 
     private async void Export_Click(object? sender, RoutedEventArgs e)
@@ -102,15 +102,15 @@ public partial class ScreenEditorView : ContentPage
         var file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = "Export screen",
-            SuggestedFileName = $"{_vm.LayoutName}.json",
-            DefaultExtension = "json",
-            FileTypeChoices = [LayoutFileType],
+            SuggestedFileName = $"{_vm.Target}.axaml",
+            DefaultExtension = "axaml",
+            FileTypeChoices = [ScreenFileType],
         });
         if (file == null) return;
 
         await using var stream = await file.OpenWriteAsync();
         await using var writer = new StreamWriter(stream, new UTF8Encoding(false));
-        await writer.WriteAsync(_vm.ExportJson());
+        await writer.WriteAsync(_vm.ExportAxaml());
         _vm.Status = "Exported.";
     }
 
@@ -123,12 +123,12 @@ public partial class ScreenEditorView : ContentPage
         {
             Title = "Import screen",
             AllowMultiple = false,
-            FileTypeFilter = [LayoutFileType],
+            FileTypeFilter = [ScreenFileType],
         });
         if (files.Count == 0) return;
 
         await using var stream = await files[0].OpenReadAsync();
         using var reader = new StreamReader(stream, Encoding.UTF8);
-        _vm.ImportJson(await reader.ReadToEndAsync());
+        _vm.ImportAxaml(await reader.ReadToEndAsync());
     }
 }

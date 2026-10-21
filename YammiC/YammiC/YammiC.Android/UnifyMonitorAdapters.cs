@@ -1,6 +1,7 @@
 using System;
 using CNCO.Unify.Device;
 using CNCO.Unify.Device.Media;
+using CNCO.Unify.Device.Power;
 using CNCO.Unify.Device.Telephony;
 using CNCO.YccuSdk.Bike;
 using CNCO.YccuSdk.Models;
@@ -58,6 +59,8 @@ internal sealed class UnifyMediaSource : IYmcMediaSource, IYmcMediaController
     public void Start() => _monitor.Start();
 
     public void Stop() => _monitor.Stop();
+
+    public byte[]? GetArtwork() => _monitor.GetArtwork();
 
     public YmcMediaMetaData GetMetadata()
     {
@@ -118,4 +121,25 @@ internal sealed class UnifyMediaSource : IYmcMediaSource, IYmcMediaController
         CcuMusicControlRequest.Action.PreviousTrack => MediaTransportAction.PreviousTrack,
         _ => null,
     };
+}
+
+/// <summary>
+/// Feeds the SDK's <see cref="BikeService"/> from the Unify.Device power monitor (Battery Saver).
+/// </summary>
+internal sealed class UnifyPowerSource : IYmcPowerSource
+{
+    private readonly IPowerMonitor _monitor = DeviceRuntime.PowerMonitor;
+
+    public UnifyPowerSource()
+    {
+        _monitor.PowerSaveModeChanged += on => PowerSaveModeChanged?.Invoke(on);
+    }
+
+    public bool IsPowerSaveMode => _monitor.IsPowerSaveMode;
+
+    public event Action<bool>? PowerSaveModeChanged;
+
+    public void Start() => _monitor.Start();
+
+    public void Stop() => _monitor.Stop();
 }

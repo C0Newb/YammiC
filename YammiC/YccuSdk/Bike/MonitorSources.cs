@@ -45,6 +45,26 @@ public interface IYmcMediaSource
     /// <summary>Raised when the active session, its playback state or its metadata changes.</summary>
     event Action? Changed;
 
+    /// <summary>The current track's picture as encoded image bytes (a small JPEG/PNG), or null if there is none or the platform can't provide one.</summary>
+    byte[]? GetArtwork() => null;
+
+    void Start();
+
+    void Stop();
+}
+
+/// <summary>
+/// The phone's power saving mode (Battery Saver). Implemented by the platform side (power monitor in CNCO.Unify.Device); the
+/// navigation screen drops to its Low refresh profile while it is on (see <see cref="Navigation.NavRefreshMode.Auto"/>).
+/// </summary>
+public interface IYmcPowerSource
+{
+    /// <summary>Whether the phone is in power saving mode right now.</summary>
+    bool IsPowerSaveMode { get; }
+
+    /// <summary>Raised, with the new value, when it changes.</summary>
+    event Action<bool>? PowerSaveModeChanged;
+
     void Start();
 
     void Stop();

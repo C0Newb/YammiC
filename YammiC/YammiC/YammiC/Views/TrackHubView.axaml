@@ -1,0 +1,39 @@
+<ContentPage xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Header="Track"
+             x:Class="YammiC.Views.TrackHubView">
+    <ScrollViewer>
+        <StackPanel Margin="16" Spacing="12">
+            <Border Classes="card" Cursor="Hand" PointerReleased="Timer_PointerReleased">
+                <StackPanel Spacing="2">
+                    <TextBlock Classes="subtitle" Text="Timer" />
+                    <TextBlock Opacity="0.7" TextWrapping="Wrap" Text="Pick a track, arm the session, see laps" />
+                </StackPanel>
+            </Border>
+            <Border Classes="card" Cursor="Hand" PointerReleased="Tracks_PointerReleased">
+                <StackPanel Spacing="2">
+                    <TextBlock Classes="subtitle" Text="Tracks" />
+                    <TextBlock Opacity="0.7" TextWrapping="Wrap" Text="Draw start/finish and sector lines on a map; save, import and export" />
+                </StackPanel>
+            </Border>
+            <Border Classes="card" Cursor="Hand" PointerReleased="Sessions_PointerReleased">
+                <StackPanel Spacing="2">
+                    <TextBlock Classes="subtitle" Text="Sessions" />
+                    <TextBlock Opacity="0.7" TextWrapping="Wrap" Text="Recorded GPS sessions and lap times; export as GPX" />
+                </StackPanel>
+            </Border>
+            <Border Classes="card" Cursor="Hand" PointerReleased="Settings_PointerReleased">
+                <StackPanel Spacing="2">
+                    <TextBlock Classes="subtitle" Text="Track settings" />
+                    <TextBlock Opacity="0.7" TextWrapping="Wrap" Text="GPS frequency, auto-select, vibration and recorded signals" />
+                </StackPanel>
+            </Border>
+            <Border Classes="card" Cursor="Hand" PointerReleased="ManualTimer_PointerReleased">
+                <StackPanel Spacing="2">
+                    <TextBlock Classes="subtitle" Text="Manual lap timer (debug)" />
+                    <TextBlock Opacity="0.7" TextWrapping="Wrap" Text="Start, lap and stop by hand; laps are sent to the bike" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</ContentPage>

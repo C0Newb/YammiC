@@ -14,19 +14,6 @@ public partial class DashboardView : ContentPage
     public DashboardView()
     {
         InitializeComponent();
-
-        DataContextChanged += (_, _) =>
-        {
-            if (DataContext is DashboardViewModel vm)
-                vm.PropertyChanged += OnViewModelPropertyChanged;
-        };
-    }
-
-    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        // Keep the newest log line in view.
-        if (e.PropertyName == nameof(DashboardViewModel.Logs))
-            Dispatcher.UIThread.Post(() => LogScroller.ScrollToEnd(), DispatcherPriority.Background);
     }
 
     private async void ChooseVpbImage_Click(object? sender, RoutedEventArgs e)
@@ -47,12 +34,6 @@ public partial class DashboardView : ContentPage
         using var memory = new MemoryStream();
         await stream.CopyToAsync(memory);
         vm.SetVpbImage(memory.ToArray(), files[0].Name);
-    }
-
-    private async void SettingsButton_Click(object? sender, RoutedEventArgs e)
-    {
-        if (Navigation != null)
-            await Navigation.PushAsync(new SettingsView { DataContext = new SettingsViewModel(App.Controller) });
     }
 
     private async void NavigationCard_PointerReleased(object? sender, PointerReleasedEventArgs e)

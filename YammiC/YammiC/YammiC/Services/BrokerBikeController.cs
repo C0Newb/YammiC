@@ -185,6 +185,17 @@ public class BrokerBikeController : IBikeController
     }
     private NavMode _navModeFallback = NavMode.Ui;
 
+    public NavRefreshMode NavRefresh
+    {
+        get => _service?.NavRefreshMode ?? _navRefreshFallback;
+        set
+        {
+            if (_service != null) _service.NavRefreshMode = value;
+            else _navRefreshFallback = value;
+        }
+    }
+    private NavRefreshMode _navRefreshFallback = NavRefreshMode.Auto;
+
     public bool ReelsSupported => _service?.ReelsSupported ?? false;
     public string? ReelsFolderName => _service?.ReelsFolderName;
 
@@ -199,13 +210,14 @@ public class BrokerBikeController : IBikeController
         }
     }
 
-    // Without a service there is no saved layout store; edits just don't persist.
-    public ScreenLayout GetScreenLayout(ScreenTarget target) =>
-        _service?.GetScreenLayout(target) ?? ScreenDefaults.For(target);
+    // Without a service there is no saved screen store; edits just don't persist.
+    public string GetScreenAxaml(ScreenTarget target) =>
+        _service?.GetScreenAxaml(target) ?? ScreenDefaults.Document(target).ToAxaml();
 
-    public void SaveScreenLayout(ScreenTarget target, ScreenLayout layout) => _service?.SaveScreenLayout(target, layout);
+    public IReadOnlyList<ScreenIssue> SaveScreenAxaml(ScreenTarget target, string axaml) =>
+        _service?.SaveScreenAxaml(target, axaml) ?? Array.Empty<ScreenIssue>();
 
-    public void ResetScreenLayout(ScreenTarget target) => _service?.ResetScreenLayout(target);
+    public void ResetScreenDocument(ScreenTarget target) => _service?.ResetScreenDocument(target);
 
     public void Connect() => _broker.ConnectAndSend();
     public void Disconnect() => _broker.Disconnect();

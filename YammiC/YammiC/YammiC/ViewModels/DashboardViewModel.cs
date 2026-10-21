@@ -70,9 +70,6 @@ public partial class DashboardViewModel : BikeViewModelBase
     [ObservableProperty]
     public partial string NavigationStatus { get; set; } = "";
 
-    [ObservableProperty]
-    public partial string Logs { get; set; } = "";
-
     // The image that "Send image" pushes to the Virtual Pit Board, as picked/loaded (any format Skia can decode).
     private byte[]? _vpbImageData;
 
@@ -101,7 +98,6 @@ public partial class DashboardViewModel : BikeViewModelBase
             StatusText = $"Status: {c.ConnectionLabel}";
             LastError = c.LastError;
             HasError = !string.IsNullOrWhiteSpace(c.LastError);
-            Logs = string.Join("\n", c.Logs);
 
             var button = c.GetConnectButtonState();
             CanConnect = Controller.CanConnect && button == ConnectButtonState.Idle;
@@ -208,9 +204,6 @@ public partial class DashboardViewModel : BikeViewModelBase
 
     [RelayCommand]
     private void Disconnect() => Controller.Disconnect();
-
-    [RelayCommand]
-    private void ClearLogs() => Controller.ClearLogs();
 
     [RelayCommand]
     private void GrantNotificationAccess() => Controller.OpenNotificationAccessSettings();

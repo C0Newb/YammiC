@@ -22,6 +22,16 @@ public sealed class ScreenLayoutStore
 
     private static string Key(ScreenTarget target) => target == ScreenTarget.Navigation ? "screen_navigation" : "screen_vpb";
 
+    /// <summary>The saved layout, or null if none was saved or it can't be read (unlike <see cref="Load"/>, never the built-in one).</summary>
+    public ScreenLayout? LoadSaved(ScreenTarget target)
+    {
+        var json = _storage.GetString(Key(target));
+        if (string.IsNullOrEmpty(json)) return null;
+        var layout = TryParse(json);
+        if (layout != null) layout.Target = target;
+        return layout;
+    }
+
     /// <summary>The saved layout, or the default if none was saved or it can't be read. Always a fresh copy.</summary>
     public ScreenLayout Load(ScreenTarget target)
     {

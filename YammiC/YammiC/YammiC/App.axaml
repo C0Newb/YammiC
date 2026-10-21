@@ -19,6 +19,12 @@
             <Setter Property="BorderBrush" Value="{DynamicResource SystemBaseLowColor}" />
             <Setter Property="BorderThickness" Value="1" />
         </Style>
+        <Style Selector="Button.nav">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="Padding" Value="14,12" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
         <Style Selector="TextBlock.title">
             <Setter Property="FontSize" Value="24" />
             <Setter Property="FontWeight" Value="SemiBold" />

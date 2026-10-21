@@ -14,7 +14,7 @@ namespace CNCO.YccuSdk.Navigation;
 public class NavigationSdk
 {
     private readonly YmcConnectionBroker _controller;
-    private readonly int _maxFps;
+    private int _maxFps;
     private readonly CancellationToken _lifetime;
     private readonly Logger _log;
     private readonly Func<INavByteChannel> _channelFactory;
@@ -22,7 +22,7 @@ public class NavigationSdk
     // Rate at which the last-pushed image is silently re-sent while nothing new comes in, so the
     // CCU keeps seeing a live feed instead of one frame followed by silence. Kept low (1-5fps)
     // since the content isn't actually changing.
-    private readonly int _idleResendFps;
+    private int _idleResendFps;
 
     private readonly object _stateLock = new();
     private NavigationState _state = new NavigationState.Idle();
@@ -44,6 +44,19 @@ public class NavigationSdk
     private volatile byte[]? _lastImageBytes;
     private CancellationTokenSource? _idleResendCancellation;
 
+    // Whether the bike is showing the navigation picture. Every picture, whatever mode made it, goes out through PushFrame (and
+    // the idle resend), which hold back while this isn't open.
+    private readonly NavImageGate _imageGate = new();
+
+    /// <summary>Whether the bike has asked for the navigation picture (and not stopped asking). Producers can skip their work while false.</summary>
+    public bool ImagesWanted => _imageGate.ImagesWanted;
+
+    /// <summary>What the bike has said about the navigation picture on this connection (<see cref="NavImageDemand.Unknown"/> until it asks).</summary>
+    public NavImageDemand ImageDemand => _imageGate.Demand;
+
+    /// <summary>Raised when <see cref="ImageDemand"/> changes (e.g. so a screen can draw a fresh picture when the bike starts asking).</summary>
+    public event Action<NavImageDemand>? ImageDemandChanged;
+
     /// <param name="controller">Connection broker, read for <see cref="YmcConnectionBroker.IsBikeConnected"/>.</param>
     /// <param name="channelFactory">Creates the byte channel to the CCU (e.g. Android's RFCOMM channel).</param>
     /// <param name="logger">Root logger.</param>
@@ -62,6 +75,19 @@ public class NavigationSdk
         _idleResendFps = idleResendFps;
         _lifetime = lifetime;
         _log = logger.Section("NavigationSdk");
+        _imageGate.Changed += OnImageDemandChanged;
+    }
+
+    /// <summary>
+    /// Changes how fast pictures go out, even while connected: the cap on pictures per second and how often the last picture is
+    /// repeated when nothing new comes in.
+    /// </summary>
+    public void SetRates(int maxFps, int idleResendFps)
+    {
+        Volatile.Write(ref _maxFps, Math.Max(maxFps, 1));
+        Volatile.Write(ref _idleResendFps, Math.Max(idleResendFps, 1));
+        var engine = _engine;
+        if (engine != null) engine.MaxFps = maxFps;
     }
 
     public NavigationState State
@@ -181,7 +207,7 @@ public class NavigationSdk
             var engine = new NavigationEngine(
                 channel: connectedChannel,
                 reader: handshake.Reader,
-                maxFps: _maxFps,
+                maxFps: Volatile.Read(ref _maxFps),
                 lifetime: _lifetime,
                 logger: _log,
                 onFrameSent: (fps, lastFrameKb) => SetState(new NavigationState.Active(Fps: fps, LastFrameKb: lastFrameKb)),
@@ -191,8 +217,14 @@ public class NavigationSdk
                 onZoomOutRequested: () => OnZoomOutRequested?.Invoke(),
                 poiProvider: GetPois,
                 onPoiSelected: selection => OnPoiSelected?.Invoke(selection),
-                statusRefresh: () => NavigationHandshake.StatusRefresh(ReportHomeAndOffice, Zoom));
+                statusRefresh: () => NavigationHandshake.StatusRefresh(ReportHomeAndOffice, Zoom),
+                onContentRequest: _imageGate.OnContentRequest);
             _engine = engine;
+
+            // Nothing is known about the bike's screen on a new connection. Queue the notice before the loops start so a START
+            // that follows straight away (which queues the real picture) replaces it rather than the other way round.
+            _imageGate.Reset();
+            SendGateNotice(engine);
             engine.Start();
             StartIdleResendLoop();
             _log.Debug("activate: handshake complete, streaming");
@@ -223,6 +255,7 @@ public class NavigationSdk
         StopAnimatedImage();
         _engine?.Stop();
         _engine = null;
+        _imageGate.Reset();
         TryClose(_channel);
         _channel = null;
         Interlocked.Exchange(ref _activeOrConnecting, 0);
@@ -248,7 +281,6 @@ public class NavigationSdk
     /// </summary>
     private void StartIdleResendLoop()
     {
-        var interval = TimeSpan.FromMilliseconds(1000L / Math.Max(_idleResendFps, 1));
         var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime);
         _idleResendCancellation = cancellation;
         var token = cancellation.Token;
@@ -258,12 +290,13 @@ public class NavigationSdk
             {
                 while (true)
                 {
+                    var interval = TimeSpan.FromMilliseconds(1000L / Math.Max(Volatile.Read(ref _idleResendFps), 1));
                     await Task.Delay(interval, token).ConfigureAwait(false);
                     // Only repeat the picture when nothing new has come in: while frames are flowing a repeat is just a wasted
                     // 20-40 KB on a link that manages a few frames a second.
                     if (System.Environment.TickCount64 - Volatile.Read(ref _lastPushTicks) < interval.TotalMilliseconds) continue;
                     var image = _lastImageBytes;
-                    if (image != null) _engine?.EnqueueImage(image);
+                    if (image != null && _imageGate.ImagesWanted) _engine?.EnqueueImage(image);
                 }
             }
             catch (OperationCanceledException)
@@ -469,6 +502,41 @@ public class NavigationSdk
             _log.Debug("pushImage: not active, dropping");
             return;
         }
+
+        // The one gate for every mode (screens, reels, animations): the picture is remembered above and goes out when the bike asks.
+        if (!_imageGate.ImagesWanted) return;
         currentEngine.EnqueueImage(image);
+    }
+
+    /// <summary>The gate changed: say so on the bike, or (when it opens) send the last picture again so it isn't left on the notice.</summary>
+    private void OnImageDemandChanged(NavImageDemand demand)
+    {
+        var currentEngine = _engine;
+        if (currentEngine != null)
+        {
+            if (demand == NavImageDemand.Wanted)
+            {
+                var last = _lastImageBytes;
+                if (last != null) currentEngine.EnqueueImage(last);
+            }
+            else
+            {
+                SendGateNotice(currentEngine);
+            }
+        }
+        _log.Debug($"navigation picture: {demand}");
+        ImageDemandChanged?.Invoke(demand);
+    }
+
+    /// <summary>
+    /// Queues the "Rendering paused" picture for the current state, around the gate and without remembering it as content. It
+    /// goes out once per state change, so if the bike's START/STOP signals aren't what they seem the notice shows it.
+    /// </summary>
+    private void SendGateNotice(NavigationEngine engine)
+    {
+        var demand = _imageGate.Demand;
+        var text = NavImageGate.StatusText(demand);
+        if (text == null) return;
+        engine.EnqueueImage(NavigationStatusImage.Render(text, DisplaySize));
     }
 }

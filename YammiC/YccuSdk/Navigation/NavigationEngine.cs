@@ -30,7 +30,7 @@ public class NavigationEngine
 
     private readonly INavByteChannel _channel;
     private readonly NavFrameReader _reader;
-    private readonly int _maxFps;
+    private int _maxFps;
     private readonly CancellationToken _lifetime;
     private readonly Logger _log;
     private readonly Action<int, int> _onFrameSent;
@@ -41,6 +41,7 @@ public class NavigationEngine
     private readonly Func<NavPoiList, IReadOnlyList<NavPoi>> _poiProvider;
     private readonly Action<NavPoiSelection> _onPoiSelected;
     private readonly Func<IReadOnlyList<(int ServiceType, int PayloadDataType, byte[] Payload)>> _statusRefresh;
+    private readonly Action<int, bool> _onContentRequest;
 
     private readonly Channel<byte[]> _frameQueue = Channel.CreateBounded<byte[]>(
         new BoundedChannelOptions(1) { FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true });
@@ -67,11 +68,12 @@ public class NavigationEngine
         Action? onZoomOutRequested = null,
         Func<NavPoiList, IReadOnlyList<NavPoi>>? poiProvider = null,
         Action<NavPoiSelection>? onPoiSelected = null,
-        Func<IReadOnlyList<(int ServiceType, int PayloadDataType, byte[] Payload)>>? statusRefresh = null)
+        Func<IReadOnlyList<(int ServiceType, int PayloadDataType, byte[] Payload)>>? statusRefresh = null,
+        Action<int, bool>? onContentRequest = null)
     {
         _channel = channel;
         _reader = reader;
-        _maxFps = maxFps;
+        _maxFps = Math.Max(maxFps, 1);
         _lifetime = lifetime;
         _log = logger.Section("NavigationEngine");
         _onFrameSent = onFrameSent ?? ((_, _) => { });
@@ -82,6 +84,7 @@ public class NavigationEngine
         _poiProvider = poiProvider ?? (_ => Array.Empty<NavPoi>());
         _onPoiSelected = onPoiSelected ?? (_ => { });
         _statusRefresh = statusRefresh ?? (() => Array.Empty<(int, int, byte[])>());
+        _onContentRequest = onContentRequest ?? ((_, _) => { });
     }
 
     /// <summary>Starts the sender loop and the frame-receive loop, both on the thread pool (blocking I/O).</summary>
@@ -100,6 +103,13 @@ public class NavigationEngine
         _log.Debug("stopping sender + receive loops");
         _loopsCancellation?.Cancel();
         _frameQueue.Writer.TryComplete();
+    }
+
+    /// <summary>The cap on pictures sent per second. Can be changed while running; the sender loop picks it up on the next picture.</summary>
+    public int MaxFps
+    {
+        get => Volatile.Read(ref _maxFps);
+        set => Volatile.Write(ref _maxFps, Math.Max(value, 1));
     }
 
     /// <summary>Enqueues raw image bytes (e.g. JPEG) as the next frame to send.</summary>
@@ -236,7 +246,6 @@ public class NavigationEngine
 
     private async Task SenderLoopAsync(CancellationToken cancellationToken)
     {
-        var minIntervalMs = 1000L / _maxFps;
         var lastSentAtMs = 0L;
         var statsSince = NowMs();
         var statFrames = 0;
@@ -250,6 +259,7 @@ public class NavigationEngine
                 // the queue keeps just the newest picture, so what is sent is as fresh as possible. (Taking the frame first meant it
                 // sat in hand, getting older, while the window was full.)
                 var sinceLastMs = NowMs() - lastSentAtMs;
+                var minIntervalMs = 1000L / MaxFps;
                 if (lastSentAtMs != 0L && sinceLastMs < minIntervalMs)
                 {
                     await Task.Delay(TimeSpan.FromMilliseconds(minIntervalMs - sinceLastMs), cancellationToken).ConfigureAwait(false);
@@ -283,7 +293,7 @@ public class NavigationEngine
                 lastSentAtMs = NowMs();
                 _sentAt.Enqueue(lastSentAtMs);
                 while (_sentAt.Count > 8) _sentAt.TryDequeue(out _); // acks that never came
-                _onFrameSent(_maxFps, frame.Length / 1024);
+                _onFrameSent(MaxFps, frame.Length / 1024);
 
                 statFrames++;
                 statBytes += frame.Length;
@@ -355,6 +365,7 @@ public class NavigationEngine
                         {
                             var contentType = frame.Payload.Length > 0 ? frame.Payload[0] : -1;
                             _log.Debug($"received START_CONTENT_UPDATE_REQUEST contentType={contentType}");
+                            _onContentRequest(contentType, true);
                             if (contentType == NaviLiteContentType.NaviImage) SendStatusRefresh();
                             if (contentType == NaviLiteContentType.FavoriteList)
                                 SendPoiList(NavPoiList.Favorites, NaviLiteServiceType.FavPoiListUpdate, NaviLiteServiceType.FavPoiListDataUpdate);
@@ -368,8 +379,11 @@ public class NavigationEngine
                         break;
 
                     case NaviLiteServiceType.StopContentUpdateRequest:
-                        _log.Debug(
-                            $"received STOP_CONTENT_UPDATE_REQUEST contentType={(frame.Payload.Length > 0 ? frame.Payload[0] : null)}");
+                        {
+                            var stoppedType = frame.Payload.Length > 0 ? frame.Payload[0] : -1;
+                            _log.Debug($"received STOP_CONTENT_UPDATE_REQUEST contentType={stoppedType}");
+                            _onContentRequest(stoppedType, false);
+                        }
                         break;
 
                     default:

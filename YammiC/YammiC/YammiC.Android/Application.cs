@@ -13,6 +13,7 @@ using CNCO.YccuSdk.Logging;
 using CNCO.YccuSdk.Navigation;
 using CNCO.YccuSdk.Packets;
 using CNCO.YccuSdk.Platform.Droid;
+using CNCO.YammiC.Screens;
 using YammiC.Services;
 
 namespace YammiC.Android
@@ -60,12 +61,27 @@ namespace YammiC.Android
                     DemoVpbImage = ReadAsset("sandwich.jpg"),
                     DemoNavigationAnimation = ReadAsset("rotating_sandwich.gif"),
                     ReelsPlatform = new AndroidReelsPlatform(this, logger),
+                    ScreenRenderer = AvaloniaScreenRenderer.IsSupported ? new AvaloniaScreenRenderer() : null,
+                    PowerSource = new UnifyPowerSource(),
                 });
             service.Start();
 
             BikeHost.Service = service;
             App.Broker = broker;
             App.Controller = new BrokerBikeController(service);
+
+            // Track Timer: GPS, tracks and sessions. The foreground service follows it so a session survives the screen going off.
+            var tracks = new CNCO.YccuSdk.Tracks.TrackTimerService(
+                new CNCO.YccuSdk.Tracks.BikeServiceTrackLink(service, logger),
+                new AndroidTrackFileStore(this),
+                new AndroidLocationSource(this),
+                new AndroidVibrator(this),
+                platform.Storage,
+                logger);
+            BikeHost.TrackTimer = tracks;
+            App.TrackTimer = tracks;
+            tracks.Changed += () => BikeForegroundService.Sync(this, broker);
+            tracks.Start();
 
             // Also listen while the process is alive (the manifest receiver covers the process not running). Either one triggers a
             // connect; the second is ignored because one is already under way.

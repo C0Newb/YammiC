@@ -48,6 +48,12 @@ public class BikeServiceOptions
     /// <summary>If set, played on the navigation screen once it becomes active (the Kotlin app's rotating sandwich). GIF or WebP.</summary>
     public byte[]? DemoNavigationAnimation { get; init; }
 
+    /// <summary>Battery saver state (from CNCO.Unify.Device). Null: the phone is never treated as saving power.</summary>
+    public IYmcPowerSource? PowerSource { get; init; }
+
+    /// <summary>Draws the custom screens' pages (the UI project provides an Avalonia one). Null: custom screens aren't drawn.</summary>
+    public IScreenRenderer? ScreenRenderer { get; init; }
+
     /// <summary>
     /// Report a saved home and office to the CCU so its "Go home"/"Go to work" buttons reach the phone (they are
     /// answered with a pit board message). Turn off if the CCU rejects the navigation link.
@@ -83,6 +89,7 @@ public class BikeService
     private const string HomeAndWorkKey = "report_home_work";
     private const string LegacyDashboardKey = "nav_dashboard";
     private const string NavModeKey = "nav_mode";
+    private const string NavRefreshKey = "nav_refresh";
     private const string ReelsFolderKey = "reels_folder";
     private const string ReelsFolderNameKey = "reels_folder_name";
     private const string VpbScreenKey = "vpb_screen";
@@ -94,15 +101,20 @@ public class BikeService
     private bool _canDataEnabled;
     private IReadOnlyList<int> _canIds = CanSignals.DefaultIds;
     private IReadOnlyList<int> _canExtraIds = Array.Empty<int>();
+    // IDs other features need regardless of the user's CAN settings (the Track Timer's "ready" flag and recorded signals). Internal:
+    // not shown to or saved for the user.
+    private IReadOnlyList<int> _requiredCanIds = Array.Empty<int>();
+    // While true the custom VPB screen stays off the board so a message from another feature (the track name) is not overwritten.
+    private volatile bool _boardOverride;
     private readonly BikeDiscovery _discovery;
     private readonly YrcSettingsClient _yrc;
     private readonly ProfileLibrary _profileLibrary;
     private readonly LapTimer _lapTimer;
-    private readonly ScreenLayoutStore _screens;
+    private readonly ScreenDocumentStore _screenDocs;
+    private readonly ScreenController _navController;
+    private readonly ScreenController _vpbController;
     private readonly ScreenPresenter _navScreen;
     private readonly ScreenPresenter _vpbScreen;
-    private volatile ScreenLayout _navLayout;
-    private volatile ScreenLayout _vpbLayout;
     private bool _vpbScreenEnabled;
     private DateTime _connectedAt = DateTime.MaxValue;
     private NavMode _navMode;
@@ -138,11 +150,14 @@ public class BikeService
         var storedHomeAndWork = platform.Storage.GetString(HomeAndWorkKey);
         _homeAndWorkEnabled = storedHomeAndWork == null ? _options.ReportHomeAndOffice : storedHomeAndWork != "0";
         _navMode = LoadNavMode(platform.Storage);
+        _navRefreshMode = NavRefreshProfile.ParseMode(platform.Storage.GetString(NavRefreshKey));
+        _batterySaver = _options.PowerSource?.IsPowerSaveMode ?? false;
         if (_options.ReelsPlatform != null)
-            _reels = new ReelsController(_options.ReelsPlatform, navigation, () => ReelsFolder, logger);
-        _screens = new ScreenLayoutStore(platform.Storage);
-        _navLayout = _screens.Load(ScreenTarget.Navigation);
-        _vpbLayout = _screens.Load(ScreenTarget.VirtualPitBoard);
+            _reels = new ReelsController(_options.ReelsPlatform, navigation, () => ReelsFolder, logger, () => NavRefresh);
+        _screenDocs = new ScreenDocumentStore(platform.Storage);
+        var screenMedia = new ScreenMediaActions(this);
+        _navController = new ScreenController(_screenDocs.Load(ScreenTarget.Navigation), screenMedia);
+        _vpbController = new ScreenController(_screenDocs.Load(ScreenTarget.VirtualPitBoard), screenMedia);
         _vpbScreenEnabled = platform.Storage.GetString(VpbScreenKey) == "1"; // off unless the user turned it on
         _canDataEnabled = platform.Storage.GetString(CanDataKey) == "1"; // off unless the user turned it on
         var storedIds = platform.Storage.GetString(CanIdsKey);
@@ -158,36 +173,40 @@ public class BikeService
             _canExtraIds = storedExtra.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => int.TryParse(s, out var id) ? id : -1).Where(id => id is >= 0 and <= 0xFFFF).ToList();
         _can.Updated += () => CanChanged?.Invoke();
 
-        ScreenContext CurrentContext() =>
-            new(DateTime.Now, MediaMetadata, _navigation.DayNightMode == NavDayNightMode.Night, _navigation.Zoom,
-                _canDataEnabled ? _can.Values(DateTime.UtcNow) : null);
+        ScreenSnapshot CurrentSnapshot(ScreenController controller) =>
+            controller.Snapshot(new ScreenContext(DateTime.Now, MediaMetadata, _navigation.DayNightMode == NavDayNightMode.Night, 1f,
+                _canDataEnabled ? _can.Values(DateTime.UtcNow) : null, _albumArt));
 
         _navScreen = new ScreenPresenter(
             "NavScreen",
-            () => _navLayout,
-            CurrentContext,
+            ScreenTarget.Navigation,
+            _options.ScreenRenderer,
+            () => _navController.CurrentPage,
+            () => CurrentSnapshot(_navController),
             () => (navigation.DisplaySize.Width, navigation.DisplaySize.Height),
-            () => navigation.State is NavigationState.Active,
+            () => navigation.State is NavigationState.Active && navigation.ImagesWanted,
             jpeg =>
             {
                 navigation.PushImage(jpeg);
                 return Task.FromResult(true);
             },
-            tick: TimeSpan.FromSeconds(1),
+            tick: () => NavRefresh.ScreenTick,
             minInterval: TimeSpan.Zero,
-            quality: 85,
+            quality: () => NavRefresh.ScreenJpegQuality,
             logger,
-            wantsFastTick: () => _canDataEnabled && ScreenVariables.UsesCan(_navLayout),
-            fastTick: TimeSpan.FromMilliseconds(500));
+            wantsFastTick: () => _canDataEnabled && _navController.CurrentPage.UsesCan,
+            fastTick: () => NavRefresh.ScreenFastTick);
 
         // A pit board picture is a multi-chunk transfer, so: check rarely, send rarely, and not while the connect
         // sequence is still using the board (its "Connected" message).
         _vpbScreen = new ScreenPresenter(
             "VpbScreen",
-            () => _vpbLayout,
-            () => CurrentContext() with { Zoom = 1f }, // the pit board has no zoom
+            ScreenTarget.VirtualPitBoard,
+            _options.ScreenRenderer,
+            () => _vpbController.CurrentPage,
+            () => CurrentSnapshot(_vpbController),
             () => ScreenSizes.DesignSize(ScreenTarget.VirtualPitBoard),
-            () => _vpbEnabled && _vpbScreenEnabled && _controller.IsBikeConnected &&
+            () => _vpbEnabled && _vpbScreenEnabled && !_boardOverride && _controller.IsBikeConnected &&
                   DateTime.UtcNow - _connectedAt > TimeSpan.FromSeconds(8),
             async jpeg =>
             {
@@ -195,10 +214,18 @@ public class BikeService
                 if (sent) SetVpbStatus("Custom screen");
                 return sent;
             },
-            tick: TimeSpan.FromSeconds(3),
+            tick: () => TimeSpan.FromSeconds(3),
             minInterval: TimeSpan.FromSeconds(15),
-            quality: 85,
+            quality: () => 85,
             logger);
+
+        _navController.Changed += () => _navScreen.Refresh();
+        // When the bike starts asking for the picture, draw it afresh (nothing was rendered while it was not looking).
+        _navigation.ImageDemandChanged += demand =>
+        {
+            if (demand == NavImageDemand.Wanted) _navScreen.Invalidate();
+        };
+        _vpbController.Changed += () => _vpbScreen.Refresh();
 
         if (_options.CallSource != null)
         {
@@ -210,11 +237,51 @@ public class BikeService
             _mediaStateMonitor.LatestMetadataChanged += metadata =>
             {
                 MediaMetadataChanged?.Invoke(metadata);
-                _navScreen.Refresh();
-                _vpbScreen.Refresh();
+                // The picture is fetched off this thread (it may be the main one) and the screens redraw once it is in.
+                _ = Task.Run(() =>
+                {
+                    RefreshAlbumArt(metadata);
+                    _navScreen.Refresh();
+                    _vpbScreen.Refresh();
+                });
             };
         }
     }
+
+    // The current track's picture, fetched when the track changes (and retried now and then while a track has none, since apps
+    // often attach it a moment after the title).
+    private volatile byte[]? _albumArt;
+    private string? _albumArtKey;
+    private long _albumArtTriedAt;
+
+    private void RefreshAlbumArt(YmcMediaMetaData metadata)
+    {
+        var source = _options.MediaSource;
+        if (source == null) return;
+
+        var key = $"{metadata.ArtistName}|{metadata.AlbumName}|{metadata.SongName}";
+        var now = System.Environment.TickCount64;
+        lock (_artLock)
+        {
+            if (key == _albumArtKey && (_albumArt != null || now - _albumArtTriedAt < 3000)) return;
+            if (key != _albumArtKey) _albumArt = null; // a new track: don't show the last one's cover while this one loads
+            _albumArtKey = key;
+            _albumArtTriedAt = now;
+        }
+
+        byte[]? art = null;
+        try
+        {
+            art = source.GetArtwork();
+        }
+        catch (Exception t)
+        {
+            _log.Debug($"album art: {t.GetType().Name}: {t.Message}");
+        }
+        _albumArt = art;
+    }
+
+    private readonly object _artLock = new();
 
     public YmcConnectionBroker Controller => _controller;
 
@@ -370,6 +437,14 @@ public class BikeService
         _phoneCallMonitor?.Start();
         _mediaStateMonitor?.Start();
 
+        if (_options.PowerSource is { } power)
+        {
+            power.PowerSaveModeChanged += OnPowerSaveModeChanged;
+            power.Start();
+            _batterySaver = power.IsPowerSaveMode;
+        }
+        ApplyNavRefresh();
+
         _navigation.StateChanged += OnNavigationStateChanged;
         _navigation.ReportHomeAndOffice = _homeAndWorkEnabled;
         _navigation.SetDayNightMode(CurrentDayNightMode());
@@ -414,6 +489,11 @@ public class BikeService
     {
         _phoneCallMonitor?.Stop();
         _mediaStateMonitor?.Stop();
+        if (_options.PowerSource is { } power)
+        {
+            power.PowerSaveModeChanged -= OnPowerSaveModeChanged;
+            power.Stop();
+        }
         _navigation.StateChanged -= OnNavigationStateChanged;
         _navScreen.Stop();
         _reels?.Stop();
@@ -480,10 +560,46 @@ public class BikeService
 
     private Task RequestCanDataAsync(YmcMessageBroker broker)
     {
-        var ids = _canIds.Concat(_canExtraIds).Distinct().ToList();
+        // The user's own selection only counts while their CAN toggle is on; the required IDs are always asked for.
+        var ids = (_canDataEnabled ? _canIds.Concat(_canExtraIds) : Enumerable.Empty<int>()).Concat(_requiredCanIds).Distinct().ToList();
         return ids.Count == 0
             ? Task.CompletedTask
             : new AppCanIntervalRequest(broker.PacketHandler, ids, CanIntervalMs).SendAsync(broker.ConnectionContext);
+    }
+
+    /// <summary>
+    /// CAN IDs that another feature needs even when the user's CAN data is off (not persisted; the feature sets them again at
+    /// start-up). They share the one request interval. Applied right away when connected.
+    /// </summary>
+    public void SetRequiredCanIds(IEnumerable<int> ids)
+    {
+        var list = ids.Where(id => id is >= 0 and <= 0xFFFF).Distinct().OrderBy(i => i).ToList();
+        if (list.SequenceEqual(_requiredCanIds)) return;
+        _requiredCanIds = list;
+        if (!_controller.IsBikeConnected) return;
+        var broker = _controller.MessageBroker;
+        if (broker != null) _ = Task.Run(() => RunOnConnectStepAsync("request CAN data", () => RequestCanDataAsync(broker)));
+    }
+
+    /// <summary>
+    /// Shows <paramref name="text"/> on the board and keeps the custom VPB screen off it until <see cref="ReleaseBoardAsync"/>.
+    /// Returns whether the message was sent.
+    /// </summary>
+    public async Task<bool> ShowBoardMessageAsync(string text)
+    {
+        _boardOverride = true;
+        if (!_vpbEnabled || !_controller.IsBikeConnected) return false;
+        var sent = await _controller.SendVirtualPitBoardMessageAsync(VpbImageBuilder.FromText(text, SKColors.White)).ConfigureAwait(false);
+        if (sent) SetVpbStatus("Message");
+        return sent;
+    }
+
+    /// <summary>Lets the custom VPB screen draw again after <see cref="ShowBoardMessageAsync"/>.</summary>
+    public Task ReleaseBoardAsync()
+    {
+        _boardOverride = false;
+        _vpbScreen.Invalidate();
+        return Task.CompletedTask;
     }
 
     // The page and the screens refresh about twice a second, so asking more than 4 times a second only adds traffic.
@@ -689,7 +805,7 @@ public class BikeService
             }
         }).ConfigureAwait(false);
 
-        if (_canDataEnabled)
+        if (_canDataEnabled || _requiredCanIds.Count > 0)
             await RunOnConnectStepAsync("request CAN data", () => RequestCanDataAsync(broker)).ConfigureAwait(false);
 
         await RunOnConnectStepAsync("activate navigation screen", () =>
@@ -850,40 +966,96 @@ public class BikeService
         _dayNightLoop = null;
     }
 
+    // -- Navigation refresh rate ----------------------------------------------
+
+    private NavRefreshMode _navRefreshMode;
+    private volatile bool _batterySaver;
+    private NavRefreshProfile? _appliedRefresh;
+
+    /// <summary>The profile in force now: the chosen mode, with <see cref="NavRefreshMode.Auto"/> following the phone's battery saver.</summary>
+    public NavRefreshProfile NavRefresh => NavRefreshProfile.For(_navRefreshMode, _batterySaver);
+
+    /// <summary>How the navigation screen's refresh rate is chosen. Persisted; applies straight away.</summary>
+    public NavRefreshMode NavRefreshMode
+    {
+        get => _navRefreshMode;
+        set
+        {
+            if (_navRefreshMode == value) return;
+            _navRefreshMode = value;
+            _platform.Storage.SetString(NavRefreshKey, value.ToString());
+            ApplyNavRefresh();
+        }
+    }
+
+    private void OnPowerSaveModeChanged(bool on)
+    {
+        _batterySaver = on;
+        ApplyNavRefresh();
+    }
+
+    /// <summary>Pushes the profile in force into the things that run at a rate. Does nothing if it didn't change.</summary>
+    private void ApplyNavRefresh()
+    {
+        var profile = NavRefresh;
+        if (ReferenceEquals(profile, _appliedRefresh)) return;
+        var first = _appliedRefresh == null;
+        _appliedRefresh = profile;
+        _navigation.SetRates(profile.SenderFps, profile.IdleResendFps);
+        _log.Debug($"navigation refresh: {profile.Name} (mode {_navRefreshMode}, battery saver {(_batterySaver ? "on" : "off")})");
+        if (!first) _reels?.RefreshProfile();
+    }
+
     // -- Custom screens -------------------------------------------------------
 
-    /// <summary>A copy of the saved layout for <paramref name="target"/> (the default if none was saved), safe to edit.</summary>
-    public ScreenLayout GetScreenLayout(ScreenTarget target) =>
-        (target == ScreenTarget.Navigation ? _navLayout : _vpbLayout).Clone();
+    /// <summary>The saved screen for <paramref name="target"/> (the built-in one if none was saved) as AXAML text.</summary>
+    public string GetScreenAxaml(ScreenTarget target) => ScreenControllerFor(target).Document.ToAxaml();
 
-    /// <summary>Saves <paramref name="layout"/> and puts it on the bike's display straight away (if that screen is running).</summary>
-    public void SaveScreenLayout(ScreenTarget target, ScreenLayout layout)
+    /// <summary>
+    /// Checks and saves <paramref name="axaml"/> as the screen for <paramref name="target"/> and puts it on the bike's display
+    /// straight away (if that screen is running). Returns the problems and saves nothing if there are any.
+    /// </summary>
+    public IReadOnlyList<ScreenIssue> SaveScreenAxaml(ScreenTarget target, string axaml)
     {
-        var copy = layout.Clone();
-        copy.Target = target;
-        _screens.Save(target, copy);
-        UseScreenLayout(target, copy);
+        ScreenDocument document;
+        try
+        {
+            document = ScreenDocument.Parse(axaml);
+        }
+        catch (ScreenDocumentException e)
+        {
+            return new[] { new ScreenIssue(e.Line, e.Message) };
+        }
+
+        var issues = new List<ScreenIssue>();
+        foreach (var page in document.Pages)
+            foreach (var issue in ScreenXamlValidator.Validate(page.Xaml))
+                issues.Add(issue with { Message = $"page \"{page.Id}\": {issue.Message}" });
+        if (issues.Count > 0) return issues;
+
+        document.Target = target;
+        _screenDocs.Save(target, document);
+        UseScreenDocument(target, document);
+        return Array.Empty<ScreenIssue>();
     }
 
-    /// <summary>Discards the saved layout for <paramref name="target"/> and goes back to the built-in one.</summary>
-    public void ResetScreenLayout(ScreenTarget target)
+    /// <summary>Discards the saved screen for <paramref name="target"/> and goes back to the built-in one.</summary>
+    public void ResetScreenDocument(ScreenTarget target)
     {
-        _screens.Reset(target);
-        UseScreenLayout(target, ScreenDefaults.For(target));
+        _screenDocs.Reset(target);
+        UseScreenDocument(target, _screenDocs.Load(target));
     }
 
-    private void UseScreenLayout(ScreenTarget target, ScreenLayout layout)
+    /// <summary>False where pages can't be drawn (no renderer, or the platform can't load XAML at run time).</summary>
+    public bool ScreenRenderingSupported => _options.ScreenRenderer != null;
+
+    private ScreenController ScreenControllerFor(ScreenTarget target) => target == ScreenTarget.Navigation ? _navController : _vpbController;
+
+    private void UseScreenDocument(ScreenTarget target, ScreenDocument document)
     {
-        if (target == ScreenTarget.Navigation)
-        {
-            _navLayout = layout;
-            _navScreen.Invalidate();
-        }
-        else
-        {
-            _vpbLayout = layout;
-            _vpbScreen.Invalidate();
-        }
+        ScreenControllerFor(target).SetDocument(document);
+        if (target == ScreenTarget.Navigation) _navScreen.Invalidate();
+        else _vpbScreen.Invalidate();
     }
 
     /// <summary>
@@ -912,7 +1084,7 @@ public class BikeService
     }
 
     /// <summary>
-    /// What the navigation screen shows: the sandwich, the custom screen (<see cref="GetScreenLayout"/>) or the reels.
+    /// What the navigation screen shows: the sandwich, the custom screen (<see cref="GetScreenAxaml"/>) or the reels.
     /// Persisted; takes effect immediately if the navigation screen is active.
     /// </summary>
     public NavMode NavigationMode
@@ -961,7 +1133,10 @@ public class BikeService
         if (_navigationWasActive && _navMode == NavMode.Reels) _reels?.Start();
     }
 
-    /// <summary>The bike's zoom buttons: in Reels Mode they scroll the videos (the zoom is left alone), otherwise they zoom.</summary>
+    /// <summary>
+    /// The bike's zoom buttons. Reels: scroll the videos. UI: they are events for the current page (default: none, so nothing
+    /// happens). Sandwich: zoom the picture.
+    /// </summary>
     private void OnZoomRequest(bool zoomIn)
     {
         if (_navMode == NavMode.Reels && _reels != null)
@@ -969,6 +1144,13 @@ public class BikeService
             if (zoomIn) _reels.Next();
             else _reels.Previous();
             // The bike greys out its buttons until it hears the zoom level back, even when nothing zoomed.
+            _navigation.AcknowledgeZoom();
+            return;
+        }
+
+        if (_navMode == NavMode.Ui)
+        {
+            _navController.Handle(zoomIn ? ScreenEvent.ZoomIn : ScreenEvent.ZoomOut);
             _navigation.AcknowledgeZoom();
             return;
         }
@@ -995,5 +1177,28 @@ public class BikeService
                 _log.Debug($"sendNavRequestNotification failed: {t.Message}");
             }
         });
+    }
+
+    /// <summary>Lets screen actions (Media.PlayPause/Next/Previous) drive the phone's music player.</summary>
+    private sealed class ScreenMediaActions : IScreenMediaActions
+    {
+        private readonly BikeService _owner;
+
+        public ScreenMediaActions(BikeService owner) => _owner = owner;
+
+        public void PlayPause() =>
+            Send(_owner.MediaMetadata?.PlaybackState == YmcMediaPlaybackState.Playing
+                ? CcuMusicControlRequest.Action.Pause
+                : CcuMusicControlRequest.Action.Play);
+
+        public void Next() => Send(CcuMusicControlRequest.Action.NextTrack);
+
+        public void Previous() => Send(CcuMusicControlRequest.Action.PreviousTrack);
+
+        private void Send(CcuMusicControlRequest.Action action)
+        {
+            var controller = _owner._options.MediaController;
+            if (controller != null && !controller.TryTransportControl(action)) controller.DispatchMediaKey(action);
+        }
     }
 }

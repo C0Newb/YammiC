@@ -1,0 +1,72 @@
+<ContentPage xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:YammiC.ViewModels"
+             xmlns:t="using:CNCO.YccuSdk.Tracks"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
+             Header="Timer"
+             x:DataType="vm:TrackTimerViewModel"
+             x:Class="YammiC.Views.TrackTimerView">
+    <Design.DataContext>
+        <vm:TrackTimerViewModel />
+    </Design.DataContext>
+
+    <ScrollViewer>
+        <StackPanel Margin="16" Spacing="16">
+
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="subtitle" Text="Status" />
+                    <TextBlock FontSize="22" TextWrapping="Wrap" Text="{Binding StateText}" />
+                    <TextBlock Opacity="0.7" TextWrapping="Wrap" Text="{Binding LocationText}" />
+                    <WrapPanel IsVisible="{Binding IsUnlocked}">
+                        <Button Margin="0,0,8,8" Content="Allow location" Command="{Binding AllowLocationCommand}" />
+                        <Button Margin="0,0,8,8" Content="Allow all the time" Command="{Binding AllowLocationAlwaysCommand}" />
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="subtitle" Text="Track" />
+                    <ComboBox HorizontalAlignment="Stretch"
+                              IsEnabled="{Binding IsUnlocked}"
+                              ItemsSource="{Binding Tracks}"
+                              SelectedItem="{Binding SelectedTrack}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="t:Track">
+                                <TextBlock Text="{Binding Name}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBlock Opacity="0.7" TextWrapping="Wrap"
+                               Text="Draw tracks under Track, then Tracks. With the bike's timer set to ready, the session starts by itself." />
+                    <Button Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            Content="Arm session"
+                            IsEnabled="{Binding CanArm}"
+                            Command="{Binding ArmCommand}" />
+                    <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            IsVisible="{Binding IsLocked}"
+                            Content="{Binding EndText}"
+                            Command="{Binding EndCommand}" />
+                    <TextBlock Foreground="{DynamicResource SystemErrorTextColor}" TextWrapping="Wrap" Text="{Binding Message}" />
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="subtitle" Text="Laps" />
+                    <TextBlock FontWeight="SemiBold" Text="{Binding BestText}" />
+                    <ItemsControl ItemsSource="{Binding Laps}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <TextBlock Margin="0,2" FontFamily="Consolas,Menlo,monospace" Text="{Binding}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</ContentPage>

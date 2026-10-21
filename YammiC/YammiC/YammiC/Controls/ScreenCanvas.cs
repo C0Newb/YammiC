@@ -1,22 +1,20 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
-using Avalonia.Platform;
 using CNCO.YccuSdk.Screens;
-using SkiaSharp;
 
 namespace YammiC.Controls;
 
 /// <summary>
-/// The drag-and-drop surface of the screen editor: shows a <see cref="ScreenLayout"/> exactly as the bike gets it (it runs
-/// the SDK's own <see cref="ScreenRenderer"/>), with the selected element outlined. Drag an element to move it, drag one of
-/// its corner squares to resize it. Changes are made straight on the <see cref="ScreenElement"/>s; <see cref="ElementChanged"/>
-/// tells the owner to refresh its fields.
+/// The drag-and-drop surface of the screen editor: shows the picture the page renders to (supplied as <see cref="Preview"/>,
+/// drawn by the same renderer the bike uses) with the page's elements outlined and the selected one marked. Drag an element to
+/// move it, drag one of its corner squares to resize it. The control doesn't change anything itself: it raises
+/// <see cref="BoundsDragged"/> and the owner applies the (clamped) result and calls <see cref="Refresh"/>.
 /// </summary>
 public class ScreenCanvas : Control
 {
@@ -24,11 +22,10 @@ public class ScreenCanvas : Control
 
     private enum Drag { None, Move, Resize }
 
-    private ScreenLayout? _layout;
-    private ScreenContext _context = new(DateTime.Now, null, false);
-    private ScreenElement? _selected;
-    private WriteableBitmap? _bitmap;
-    private bool _dirty = true;
+    private IReadOnlyList<EditElement>? _elements;
+    private ScreenTarget _target;
+    private EditElement? _selected;
+    private Bitmap? _preview;
 
     private Drag _drag;
     private Point _dragStartDesign;
@@ -36,33 +33,44 @@ public class ScreenCanvas : Control
     private int _resizeCorner;
 
     /// <summary>The user picked (or deselected, with null) an element.</summary>
-    public event Action<ScreenElement?>? SelectionChanged;
+    public event Action<EditElement?>? SelectionChanged;
 
-    /// <summary>An element was moved or resized by dragging.</summary>
-    public event Action<ScreenElement>? ElementChanged;
+    /// <summary>The user dragged the selected element to this position and size (design space). The owner applies it, clamped.</summary>
+    public event Action<EditElement, float, float, float, float>? BoundsDragged;
 
-    public ScreenLayout? Layout
+    public IReadOnlyList<EditElement>? Elements
     {
-        get => _layout;
+        get => _elements;
         set
         {
-            _layout = value;
+            _elements = value;
             Refresh();
+        }
+    }
+
+    public ScreenTarget Target
+    {
+        get => _target;
+        set
+        {
+            _target = value;
             InvalidateMeasure();
-        }
-    }
-
-    public ScreenContext Context
-    {
-        get => _context;
-        set
-        {
-            _context = value;
             Refresh();
         }
     }
 
-    public ScreenElement? Selected
+    /// <summary>The page rendered at design size; null until the first render finishes.</summary>
+    public Bitmap? Preview
+    {
+        get => _preview;
+        set
+        {
+            _preview = value;
+            InvalidateVisual();
+        }
+    }
+
+    public EditElement? Selected
     {
         get => _selected;
         set
@@ -73,17 +81,10 @@ public class ScreenCanvas : Control
         }
     }
 
-    /// <summary>Re-renders after the layout or context changed.</summary>
-    public void Refresh()
-    {
-        _dirty = true;
-        InvalidateVisual();
-    }
-
-    private (int Width, int Height) DesignSize => _layout == null ? (480, 240) : ScreenSizes.DesignSize(_layout.Target);
+    public void Refresh() => InvalidateVisual();
 
     // The part of the screen shown and editable: the visible strip on the pit board, everything on the navigation screen.
-    private (float X, float Y, float Width, float Height) View => _layout == null ? (0, 0, 480, 240) : ScreenSizes.Bounds(_layout.Target);
+    private (float X, float Y, float Width, float Height) View => ScreenSizes.Bounds(_target);
 
     protected override Size MeasureOverride(Size availableSize)
     {
@@ -106,25 +107,18 @@ public class ScreenCanvas : Control
     public override void Render(DrawingContext context)
     {
         base.Render(context);
-        if (_layout == null) return;
 
-        var (designWidth, designHeight) = DesignSize; // the bitmap is the whole screen; only the view part is shown
-        var (scale, origin) = Fit();
         var view = View;
+        var (scale, origin) = Fit();
         var destination = ToScreen(view.X, view.Y, view.Width, view.Height, scale, origin);
 
-        if (_dirty || _bitmap == null)
-        {
-            _bitmap?.Dispose();
-            _bitmap = RenderToBitmap(designWidth * 2, designHeight * 2);
-            _dirty = false;
-        }
-        context.DrawImage(_bitmap, new Rect(view.X * 2, view.Y * 2, view.Width * 2, view.Height * 2), destination);
+        if (_preview != null)
+            context.DrawImage(_preview, new Rect(view.X, view.Y, view.Width, view.Height), destination);
         context.DrawRectangle(null, new Pen(new SolidColorBrush(Colors.Gray, 0.8), 1), destination);
 
         // Faint outlines so empty boxes (dividers, hidden-by-state text) can still be found.
         var faint = new Pen(new SolidColorBrush(Colors.Gray, 0.5), 1);
-        foreach (var element in _layout.Elements)
+        foreach (var element in _elements ?? Array.Empty<EditElement>())
             context.DrawRectangle(null, faint, ToScreen(element.X, element.Y, element.Width, element.Height, scale, origin));
 
         if (_selected != null)
@@ -134,24 +128,6 @@ public class ScreenCanvas : Control
             foreach (var corner in Corners(rect))
                 context.DrawRectangle(Brushes.White, new Pen(Brushes.DeepSkyBlue, 2), new Rect(corner.X - HandleSize / 2, corner.Y - HandleSize / 2, HandleSize, HandleSize));
         }
-    }
-
-    private WriteableBitmap RenderToBitmap(int width, int height)
-    {
-        using var rendered = ScreenRenderer.Render(_layout!, _context, width, height);
-        using var bgra = rendered.ColorType == SKColorType.Bgra8888 ? null : rendered.Copy(SKColorType.Bgra8888);
-        var source = bgra ?? rendered;
-
-        var bitmap = new WriteableBitmap(new PixelSize(width, height), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
-        using var frame = bitmap.Lock();
-        var rowBytes = Math.Min(source.RowBytes, frame.RowBytes);
-        var row = new byte[rowBytes];
-        for (var y = 0; y < height; y++)
-        {
-            Marshal.Copy(source.GetPixels() + y * source.RowBytes, row, 0, rowBytes);
-            Marshal.Copy(row, 0, frame.Address + y * frame.RowBytes, rowBytes);
-        }
-        return bitmap;
     }
 
     private static Rect ToScreen(float x, float y, float w, float h, double scale, Point origin) =>
@@ -170,7 +146,7 @@ public class ScreenCanvas : Control
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
-        if (_layout == null || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        if (_elements == null || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
 
         // This control handles the raw pointer itself. Without this, Avalonia's touch gesture recognizers (hold, scroll, the
         // navigation page's swipe-back) take the pointer over after a moment and the drag dies.
@@ -197,7 +173,7 @@ public class ScreenCanvas : Control
 
         // Otherwise pick the topmost element under the pointer (or nothing).
         var design = ToDesign(position);
-        var hit = _layout.Elements.LastOrDefault(el =>
+        var hit = _elements.LastOrDefault(el =>
             design.X >= el.X && design.X <= el.X + el.Width && design.Y >= el.Y && design.Y <= el.Y + el.Height);
         if (hit != _selected)
         {
@@ -231,11 +207,10 @@ public class ScreenCanvas : Control
         var dy = (float)Math.Round(now.Y - _dragStartDesign.Y);
         var (x, y, w, h) = _dragStartRect;
 
+        float nx, ny, nw, nh;
         if (_drag == Drag.Move)
         {
-            _selected.X = x + dx;
-            _selected.Y = y + dy;
-            ScreenSizes.ClampToBounds(_selected, _layout!.Target);
+            (nx, ny, nw, nh) = (x + dx, y + dy, w, h);
         }
         else
         {
@@ -248,20 +223,10 @@ public class ScreenCanvas : Control
             else right = Math.Max(x + w + dx, left + 4);
             if (_resizeCorner is 0 or 1) top = Math.Min(y + dy, bottom - 4);
             else bottom = Math.Max(y + h + dy, top + 4);
-            // Never past the shown area.
-            var area = View;
-            left = Math.Max(left, area.X);
-            top = Math.Max(top, area.Y);
-            right = Math.Min(right, area.X + area.Width);
-            bottom = Math.Min(bottom, area.Y + area.Height);
-            _selected.X = left;
-            _selected.Y = top;
-            _selected.Width = Math.Max(right - left, 1);
-            _selected.Height = Math.Max(bottom - top, 1);
+            (nx, ny, nw, nh) = (left, top, right - left, bottom - top);
         }
 
-        Refresh();
-        ElementChanged?.Invoke(_selected);
+        BoundsDragged?.Invoke(_selected, nx, ny, nw, nh);
         e.Handled = true;
     }
 

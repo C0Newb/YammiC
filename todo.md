@@ -61,5 +61,13 @@
 - [x] VPB
   - [ ] Send fuel info
   - [ ] Turn-by-turn
+- [ ] Track Timer
+  - [x] GPS logging (configurable frequency) and session recording (GPS + selected CAN signals, GPX export) — built, untested on a bike
+  - [x] Tracks: start/finish line and sectors drawn on a map; save/load/import/export; select track for the timer
+  - [x] Auto-lap from line crossings; auto-select the nearest/last-used track
+  - [x] Lock settings while the bike's timer is ready/armed (bike ready flag assumed CAN 0x03BF byte 4 bit 5: verify on the bike)
+  - [ ] Session playback on a map with bike telemetry
+  - [ ] Offline map cache (online tiles only for now)
+- [x] Sidebar navigation: Dashboard, Bike Telemetry, Track, Y-Trac (ride profiles), Bike UI, Debug log, Settings (bottom)
 - [ ] Implement 'control' hub via navigation button listeners (go home/go to work/near by gas stations)
 - [ ] Android Auto streamed as "navigation" - integration with buttons

@@ -50,6 +50,9 @@ public interface IBikeController
     /// <summary>What the bike's navigation screen shows: the sandwich, the custom screen or the reels.</summary>
     NavMode NavigationMode { get; set; }
 
+    /// <summary>How often and how heavy pictures go to the navigation screen: Normal, Low, or Auto (Low while the phone's battery saver is on).</summary>
+    NavRefreshMode NavRefresh { get; set; }
+
     /// <summary>Whether this platform can play videos for Reels Mode.</summary>
     bool ReelsSupported { get; }
 
@@ -62,14 +65,14 @@ public interface IBikeController
     /// <summary>Keep the Virtual Pit Board showing the custom VPB screen (off by default; it replaces the demo image and one-off messages).</summary>
     bool VpbScreenEnabled { get; set; }
 
-    /// <summary>A copy of the saved layout for a display (the built-in one if none saved), safe to edit.</summary>
-    ScreenLayout GetScreenLayout(ScreenTarget target);
+    /// <summary>The saved screen for a display (the built-in one if none saved) as AXAML text.</summary>
+    string GetScreenAxaml(ScreenTarget target);
 
-    /// <summary>Saves a layout and shows it on the bike straight away.</summary>
-    void SaveScreenLayout(ScreenTarget target, ScreenLayout layout);
+    /// <summary>Checks and saves a screen and shows it on the bike. Returns the problems found (nothing is saved if there are any).</summary>
+    IReadOnlyList<ScreenIssue> SaveScreenAxaml(ScreenTarget target, string axaml);
 
-    /// <summary>Forgets the saved layout; the built-in one is used again.</summary>
-    void ResetScreenLayout(ScreenTarget target);
+    /// <summary>Forgets the saved screen; the built-in one is used again.</summary>
+    void ResetScreenDocument(ScreenTarget target);
 
     /// <summary>Ask the bike for live data (RPM, temperatures, ...). Adds continuous Bluetooth traffic; off by default.</summary>
     bool CanDataEnabled { get; set; }

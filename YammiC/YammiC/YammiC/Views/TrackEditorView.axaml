@@ -1,0 +1,40 @@
+<ContentPage xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:YammiC.ViewModels"
+             xmlns:c="using:YammiC.Controls"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
+             Header="Edit track"
+             x:DataType="vm:TrackEditorViewModel"
+             x:Class="YammiC.Views.TrackEditorView">
+    <Design.DataContext>
+        <vm:TrackEditorViewModel />
+    </Design.DataContext>
+
+    <!-- Not in a ScrollViewer: dragging the map would scroll the page instead. -->
+    <Grid RowDefinitions="Auto,*,Auto" Margin="8" RowSpacing="8">
+        <StackPanel Spacing="8">
+            <TextBox Watermark="Track name" MaxLength="40" Text="{Binding Name}" />
+            <WrapPanel>
+                <Button Margin="0,0,8,4" Content="Redraw start/finish" Command="{Binding RedrawStartFinishCommand}" />
+                <Button Margin="0,0,8,4" Content="Add sector line" IsEnabled="{Binding CanAddSector}" Command="{Binding AddSectorCommand}" />
+                <Button Margin="0,0,8,4" Content="Remove last sector" Command="{Binding RemoveLastSectorCommand}" />
+            </WrapPanel>
+        </StackPanel>
+
+        <Grid Grid.Row="1">
+            <c:TrackMapControl x:Name="Map" ClipToBounds="True" />
+            <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8" Spacing="4">
+                <Button Width="44" Height="44" Content="+" Click="ZoomIn_Click" />
+                <Button Width="44" Height="44" Content="-" Click="ZoomOut_Click" />
+                <Button Width="44" Height="44" Content="Me" Click="Here_Click" />
+            </StackPanel>
+        </Grid>
+
+        <StackPanel Grid.Row="2" Spacing="6">
+            <TextBlock TextWrapping="Wrap" Opacity="0.8" Text="{Binding Status}" />
+            <Button Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Content="Save track" Click="Save_Click" />
+        </StackPanel>
+    </Grid>
+</ContentPage>

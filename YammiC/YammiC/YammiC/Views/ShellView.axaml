@@ -1,0 +1,20 @@
+<DrawerPage xmlns="https://github.com/avaloniaui"
+            xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+            DrawerLayoutBehavior="Overlay"
+            DrawerLength="260"
+            x:Class="YammiC.Views.ShellView">
+    <DrawerPage.Drawer>
+        <Grid RowDefinitions="Auto,*,Auto" Margin="8">
+            <TextBlock Classes="title" Margin="8,8,8,16" Text="YammiC" />
+            <StackPanel Grid.Row="1" Spacing="4">
+                <Button x:Name="DashboardButton" Classes="nav" Tag="Dashboard" Content="Dashboard" Click="Section_Click" />
+                <Button Classes="nav" Tag="Telemetry" Content="Bike Telemetry" Click="Section_Click" />
+                <Button Classes="nav" Tag="Track" Content="Track" Click="Section_Click" />
+                <Button Classes="nav" Tag="YTrac" Content="Y-Trac (ride profiles)" Click="Section_Click" />
+                <Button Classes="nav" Tag="BikeUi" Content="Bike UI" Click="Section_Click" />
+                <Button Classes="nav" Tag="Log" Content="Debug log" Click="Section_Click" />
+            </StackPanel>
+            <Button Grid.Row="2" Classes="nav" Tag="Settings" Content="Settings" Click="Section_Click" />
+        </Grid>
+    </DrawerPage.Drawer>
+</DrawerPage>

@@ -18,4 +18,5 @@
   </Folder>
   <Project Path="YammiC/YammiC/YammiC.csproj" />
   <Project Path="YccuSdk/YccuSdk.csproj" />
+  <Project Path="YccuSdk.Tests/YccuSdk.Tests.csproj" />
 </Solution>

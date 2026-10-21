@@ -24,6 +24,38 @@ public class MainActivity : AvaloniaMainActivity
     {
         base.OnCreate(savedInstanceState);
         RequestBluetoothPermissions();
+        CNCO.YccuSdk.Platform.Droid.AndroidLocationSource.PermissionRequester = RequestLocationAccess;
+    }
+
+    protected override void OnDestroy()
+    {
+        CNCO.YccuSdk.Platform.Droid.AndroidLocationSource.PermissionRequester = null;
+        base.OnDestroy();
+    }
+
+    private const int LocationPermissionRequest = 3;
+
+    // The Track Timer asks for this from its own page, never during a session. On Android 11+ the "all the time" choice is only on
+    // the app's settings page; on 10 it is an ordinary permission.
+    private void RequestLocationAccess(bool background)
+    {
+        RunOnUiThread(() =>
+        {
+            if (!background)
+            {
+                var missing = Missing(new[] { Manifest.Permission.AccessFineLocation, Manifest.Permission.AccessCoarseLocation });
+                if (missing.Length > 0) RequestPermissions(missing, LocationPermissionRequest);
+            }
+            else if (Build.VERSION.SdkInt >= BuildVersionCodes.R)
+            {
+                var settings = new global::Android.Content.Intent(global::Android.Provider.Settings.ActionApplicationDetailsSettings, global::Android.Net.Uri.FromParts("package", PackageName, null));
+                StartActivity(settings);
+            }
+            else if (Build.VERSION.SdkInt >= BuildVersionCodes.Q)
+            {
+                RequestPermissions(new[] { Manifest.Permission.AccessBackgroundLocation }, LocationPermissionRequest);
+            }
+        });
     }
 
     protected override void OnResume()

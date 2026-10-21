@@ -11,12 +11,10 @@ namespace CNCO.YccuSdk.Reels;
 /// </summary>
 public sealed class ReelsController
 {
-    private const int MaxFps = 8;
-    private const int JpegQuality = 50; // small pictures: the link to the bike, not the phone, is what limits the frame rate
-
     private readonly IReelsPlatform _platform;
     private readonly NavigationSdk _navigation;
     private readonly Func<string?> _folder;
+    private readonly Func<NavRefreshProfile> _profile;
     private readonly Logger _log;
     private readonly object _gate = new();
 
@@ -25,8 +23,9 @@ public sealed class ReelsController
     private IReadOnlyList<ReelItem> _items = Array.Empty<ReelItem>();
     private int _index;
 
-    public ReelsController(IReelsPlatform platform, NavigationSdk navigation, Func<string?> folder, Logger logger)
+    public ReelsController(IReelsPlatform platform, NavigationSdk navigation, Func<string?> folder, Logger logger, Func<NavRefreshProfile>? profile = null)
     {
+        _profile = profile ?? (() => NavRefreshProfile.Normal);
         _platform = platform;
         _navigation = navigation;
         _folder = folder;
@@ -104,6 +103,16 @@ public sealed class ReelsController
         _platform.Stop();
     }
 
+    /// <summary>The refresh profile changed: start the current video again so it runs at the new rate (it begins from the start).</summary>
+    public void RefreshProfile()
+    {
+        lock (_gate)
+        {
+            if (!_running || _items.Count == 0) return;
+        }
+        PlayCurrent();
+    }
+
     /// <summary>Scrolls to the next video (wrapping round).</summary>
     public void Next() => Step(1);
 
@@ -134,7 +143,7 @@ public sealed class ReelsController
         _log.Debug($"playing {item.Name}");
         _platform.Play(
             item,
-            MaxFps,
+            _profile().ReelsFps,
             bitmap =>
             {
                 using (bitmap)
@@ -143,9 +152,10 @@ public sealed class ReelsController
                     {
                         if (!_running || generation != _generation) return;
                     }
+                    if (!_navigation.ImagesWanted) return; // the bike is not on the navigation screen: skip the work
                     var size = _navigation.DisplaySize;
                     using var frame = YmcImaging.Letterbox(bitmap, size.Width, size.Height);
-                    _navigation.PushImage(YmcImaging.EncodeJpeg(frame, JpegQuality));
+                    _navigation.PushImage(YmcImaging.EncodeJpeg(frame, _profile().ReelsJpegQuality));
                 }
             },
             error =>

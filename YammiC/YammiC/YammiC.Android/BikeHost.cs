@@ -1,4 +1,5 @@
 using CNCO.YccuSdk.Bike;
+using CNCO.YccuSdk.Tracks;
 
 namespace YammiC.Android;
 
@@ -9,4 +10,6 @@ namespace YammiC.Android;
 internal static class BikeHost
 {
     public static BikeService? Service { get; set; }
+
+    public static TrackTimerService? TrackTimer { get; set; }
 }

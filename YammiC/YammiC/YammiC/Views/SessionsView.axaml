@@ -1,0 +1,35 @@
+<ContentPage xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:YammiC.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
+             Header="Sessions"
+             x:DataType="vm:SessionsViewModel"
+             x:Class="YammiC.Views.SessionsView">
+    <Design.DataContext>
+        <vm:SessionsViewModel />
+    </Design.DataContext>
+
+    <ScrollViewer>
+        <StackPanel Margin="16" Spacing="12">
+            <TextBlock TextWrapping="Wrap" Opacity="0.7" Text="{Binding Status}" />
+            <ItemsControl ItemsSource="{Binding Sessions}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:SessionRow">
+                        <Border Classes="card" Margin="0,0,0,8">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="subtitle" TextWrapping="Wrap" Text="{Binding Title}" />
+                                <TextBlock Opacity="0.7" TextWrapping="Wrap" Text="{Binding Detail}" />
+                                <WrapPanel>
+                                    <Button Margin="0,0,8,0" Content="Export GPX..." Command="{Binding ExportCommand}" />
+                                    <Button Content="Delete" Command="{Binding DeleteCommand}" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </ScrollViewer>
+</ContentPage>

@@ -37,6 +37,16 @@
     <PackageReference Include="Xamarin.AndroidX.Core.Core.Ktx" />
   </ItemGroup>
 
+  <!-- Runtime-loaded screen pages use reflection over these; keep them whole (see docs/superpowers/specs/2026-10-19-avalonia-screen-pages-design.md). -->
+  <ItemGroup>
+    <TrimmerRootAssembly Include="YammiC" RootMode="All" />
+    <TrimmerRootAssembly Include="YccuSdk" RootMode="All" />
+    <TrimmerRootAssembly Include="Avalonia.Markup.Xaml.Loader" RootMode="All" />
+    <TrimmerRootAssembly Include="Avalonia.Markup.Xaml" RootMode="All" />
+    <TrimmerRootAssembly Include="Avalonia.Base" RootMode="All" />
+    <TrimmerRootAssembly Include="Avalonia.Controls" RootMode="All" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\YammiC\YammiC.csproj" />
     <ProjectReference Include="..\..\YccuSdk\YccuSdk.csproj" />

@@ -14,10 +14,6 @@
     <ScrollViewer>
         <StackPanel Margin="16" Spacing="16">
 
-            <Button Content="Settings"
-                    HorizontalAlignment="Right"
-                    Click="SettingsButton_Click" />
-
             <Border Classes="card" IsVisible="{Binding NeedsNotificationAccess}">
                 <Grid ColumnDefinitions="*,Auto">
                     <TextBlock VerticalAlignment="Center"
@@ -111,23 +107,6 @@
                 <StackPanel Spacing="8">
                     <TextBlock Classes="subtitle" Text="Navigation" />
                     <TextBlock Text="{Binding NavigationStatus}" />
-                </StackPanel>
-            </Border>
-
-            <Border Classes="card">
-                <StackPanel Spacing="8">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <TextBlock Classes="subtitle" VerticalAlignment="Center" Text="Debug log" />
-                        <Button Grid.Column="1"
-                                Content="Clear logs"
-                                Command="{Binding ClearLogsCommand}" />
-                    </Grid>
-                    <ScrollViewer x:Name="LogScroller" Height="200">
-                        <SelectableTextBlock FontFamily="Consolas,Menlo,monospace"
-                                             FontSize="12"
-                                             TextWrapping="Wrap"
-                                             Text="{Binding Logs}" />
-                    </ScrollViewer>
                 </StackPanel>
             </Border>
 

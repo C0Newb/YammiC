@@ -25,6 +25,11 @@ public partial class SettingsViewModel : BikeViewModelBase
 
     public static NavMode[] NavModes { get; } = System.Enum.GetValues<NavMode>();
 
+    [ObservableProperty]
+    public partial NavRefreshMode NavRefresh { get; set; }
+
+    public static NavRefreshMode[] NavRefreshModes { get; } = System.Enum.GetValues<NavRefreshMode>();
+
     public bool ReelsSupported => Controller.ReelsSupported;
 
     [ObservableProperty]
@@ -55,6 +60,7 @@ public partial class SettingsViewModel : BikeViewModelBase
         AutoReconnectEnabled = controller.AutoReconnectEnabled;
         HomeAndWorkEnabled = controller.HomeAndWorkEnabled;
         NavigationMode = controller.NavigationMode;
+        NavRefresh = controller.NavRefresh;
         ReelsFolderText = ReelsFolderLabel();
         VpbScreenEnabled = controller.VpbScreenEnabled;
         Attach();
@@ -88,6 +94,8 @@ public partial class SettingsViewModel : BikeViewModelBase
     partial void OnHomeAndWorkEnabledChanged(bool value) => Controller.HomeAndWorkEnabled = value;
 
     partial void OnNavigationModeChanged(NavMode value) => Controller.NavigationMode = value;
+
+    partial void OnNavRefreshChanged(NavRefreshMode value) => Controller.NavRefresh = value;
 
     partial void OnVpbScreenEnabledChanged(bool value) => Controller.VpbScreenEnabled = value;
 

@@ -17,14 +17,16 @@ namespace YammiC.Android;
 ///  - Started by Sync() when a connection attempt begins, and stopped when it ends (nothing runs while idle).
 ///  - The notification's Disconnect action (or StopSelf) also ends it.
 /// </summary>
-[Service(Exported = false, ForegroundServiceType = ForegroundService.TypeConnectedDevice)]
+[Service(Exported = false, ForegroundServiceType = ForegroundService.TypeConnectedDevice | ForegroundService.TypeLocation)]
 public class BikeForegroundService : Service
 {
     public const string ActionDisconnect = "co.cnewb.yammic.DISCONNECT";
+    public const string ActionRefresh = "co.cnewb.yammic.REFRESH";
     private const string ChannelId = "yammic_ble";
     private const int NotificationId = 1;
 
     private YmcConnectionBroker? _broker;
+    private PowerManager.WakeLock? _wakeLock;
 
     public override IBinder? OnBind(Intent? intent) => null;
 
@@ -32,11 +34,13 @@ public class BikeForegroundService : Service
     {
         base.OnCreate();
         CreateNotificationChannel();
-        StartForeground(NotificationId, BuildNotification(connected: false), ForegroundService.TypeConnectedDevice);
+        EnterForeground();
 
         // Keep the notification in sync with the controller's connection state.
         _broker = BikeHost.Service?.Controller;
         if (_broker != null) _broker.StateChanged += OnBrokerStateChanged;
+        if (BikeHost.TrackTimer is { } tracks) tracks.Changed += OnTrackChanged;
+        SyncWakeLock();
     }
 
     public override StartCommandResult OnStartCommand(Intent? intent, StartCommandFlags flags, int startId)
@@ -46,6 +50,11 @@ public class BikeForegroundService : Service
             BikeHost.Service?.Controller.Disconnect();
             StopSelf();
         }
+        else if (intent?.Action == ActionRefresh)
+        {
+            EnterForeground();
+            SyncWakeLock();
+        }
         // Not sticky: a restarted service would have no connection to keep alive.
         return StartCommandResult.NotSticky;
     }
@@ -54,7 +63,61 @@ public class BikeForegroundService : Service
     {
         lock (typeof(BikeForegroundService)) _requested = false;
         if (_broker != null) _broker.StateChanged -= OnBrokerStateChanged;
+        if (BikeHost.TrackTimer is { } tracks) tracks.Changed -= OnTrackChanged;
+        ReleaseWakeLock();
         base.OnDestroy();
+    }
+
+    private bool TrackActive => BikeHost.TrackTimer?.Timer.IsLocked == true;
+
+    private void OnTrackChanged()
+    {
+        SyncWakeLock();
+        EnterForeground();
+    }
+
+    /// <summary>
+    /// (Re)declares the service as foreground. The location type is only added when location can be read from here: fine access
+    /// plus either the "all the time" permission or a session that was armed while the app was showing. Android refuses the
+    /// location type otherwise, so a refusal falls back to the connection-only type.
+    /// </summary>
+    private void EnterForeground()
+    {
+        var notification = BuildNotification(_broker?.IsBikeConnected == true);
+        var locationOk = BikeHost.TrackTimer?.Location is { HasPermission: true } location && (location.HasBackgroundPermission || TrackActive);
+        if (locationOk)
+        {
+            try
+            {
+                StartForeground(NotificationId, notification, ForegroundService.TypeConnectedDevice | ForegroundService.TypeLocation);
+                return;
+            }
+            catch (Exception)
+            {
+                // Fall through to the connection-only type.
+            }
+        }
+        StartForeground(NotificationId, notification, ForegroundService.TypeConnectedDevice);
+    }
+
+    // Keeps the CPU running with the screen off while a session is on, so GPS fixes are not dropped.
+    private void SyncWakeLock()
+    {
+        if (TrackActive)
+        {
+            if (_wakeLock?.IsHeld == true) return;
+            _wakeLock ??= (GetSystemService(PowerService) as PowerManager)?.NewWakeLock(WakeLockFlags.Partial, "yammic:track");
+            _wakeLock?.Acquire();
+        }
+        else
+        {
+            ReleaseWakeLock();
+        }
+    }
+
+    private void ReleaseWakeLock()
+    {
+        if (_wakeLock?.IsHeld == true) _wakeLock.Release();
     }
 
     private void OnBrokerStateChanged(BikeDebugState state) => UpdateNotification(_broker?.IsBikeConnected == true);
@@ -87,7 +150,7 @@ public class BikeForegroundService : Service
 
         return new Notification.Builder(this, ChannelId)
             .SetContentTitle("YammiC")!
-            .SetContentText(connected ? "Connected to CCU" : "Connecting to CCU...")!
+            .SetContentText(TrackActive ? "Track session in progress" : connected ? "Connected to CCU" : "Connecting to CCU...")!
             .SetSmallIcon(Resource.Drawable.Icon)!
             .SetContentIntent(openApp)!
             .SetOngoing(true)!
@@ -103,7 +166,7 @@ public class BikeForegroundService : Service
     /// </summary>
     public static void Sync(Context context, YmcConnectionBroker broker)
     {
-        var wanted = broker.IsBikeConnected || broker.IsConnecting;
+        var wanted = broker.IsBikeConnected || broker.IsConnecting || BikeHost.TrackTimer?.Timer.IsLocked == true;
         try
         {
             lock (typeof(BikeForegroundService))

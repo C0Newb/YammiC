@@ -5,10 +5,12 @@ namespace CNCO.YccuSdk.Packets.Ccu;
 /// </summary>
 public abstract class CcuIncomingPacket : YmcPacket
 {
-    protected CcuIncomingPacket(YmcCommandCode commandCode, IYmcPacketHandler packetHandler, byte[] data)
-        : base(commandCode, packetHandler)
-    {
-    }
+    protected CcuIncomingPacket(
+        YmcCommandCode commandCode,
+        IYmcPacketHandler packetHandler,
+        byte[] data
+    )
+        : base(commandCode, packetHandler) { }
 
     protected abstract void Deserialize(byte[] data);
 }
@@ -18,10 +20,12 @@ public abstract class CcuIncomingPacket : YmcPacket
 /// </summary>
 public abstract class CcuIncomingRequest : CcuIncomingPacket
 {
-    protected CcuIncomingRequest(YmcCommandCode commandCode, IYmcPacketHandler packetHandler, byte[] data)
-        : base(commandCode, packetHandler, data)
-    {
-    }
+    protected CcuIncomingRequest(
+        YmcCommandCode commandCode,
+        IYmcPacketHandler packetHandler,
+        byte[] data
+    )
+        : base(commandCode, packetHandler, data) { }
 }
 
 /// <summary>
@@ -29,8 +33,10 @@ public abstract class CcuIncomingRequest : CcuIncomingPacket
 /// </summary>
 public abstract class CcuIncomingResponse : CcuIncomingPacket
 {
-    protected CcuIncomingResponse(YmcCommandCode commandCode, IYmcPacketHandler packetHandler, byte[] data)
-        : base(commandCode, packetHandler, data)
-    {
-    }
+    protected CcuIncomingResponse(
+        YmcCommandCode commandCode,
+        IYmcPacketHandler packetHandler,
+        byte[] data
+    )
+        : base(commandCode, packetHandler, data) { }
 }

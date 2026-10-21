@@ -11,7 +11,8 @@ namespace CNCO.YccuSdk.Screens;
 /// <param name="Night">Dark theme.</param>
 /// <param name="Zoom">Magnification of the elements about the screen centre (1 = as designed); set by the bike's zoom buttons on the navigation screen.</param>
 /// <param name="Can">Live bike data, or null when it isn't being collected (the variables then show a dash).</param>
-public record ScreenContext(DateTime Now, YmcMediaMetaData? Media, bool Night, float Zoom = 1f, CanValues? Can = null)
+/// <param name="AlbumArt">The current track's picture as encoded image bytes (JPEG/PNG), or null when there isn't one.</param>
+public record ScreenContext(DateTime Now, YmcMediaMetaData? Media, bool Night, float Zoom = 1f, CanValues? Can = null, byte[]? AlbumArt = null)
 {
     /// <summary>True when a real track is known (not the placeholder statuses, which have no state).</summary>
     public bool HasMusic =>

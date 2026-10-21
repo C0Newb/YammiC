@@ -91,20 +91,25 @@ public class FakeBikeController : IBikeController
     public event Action? CanChanged;
 #pragma warning restore CS0067
     public NavMode NavigationMode { get; set; } = NavMode.Ui;
+    public NavRefreshMode NavRefresh { get; set; } = NavRefreshMode.Auto;
     public bool ReelsSupported => false;
     public string? ReelsFolderName { get; private set; }
 
     public void SetReelsFolder(string folderUri, string? displayName) => ReelsFolderName = displayName;
     public bool VpbScreenEnabled { get; set; }
 
-    private readonly System.Collections.Generic.Dictionary<ScreenTarget, ScreenLayout> _layouts = new();
+    private readonly System.Collections.Generic.Dictionary<ScreenTarget, string> _screens = new();
 
-    public ScreenLayout GetScreenLayout(ScreenTarget target) =>
-        (_layouts.TryGetValue(target, out var saved) ? saved : ScreenDefaults.For(target)).Clone();
+    public string GetScreenAxaml(ScreenTarget target) =>
+        _screens.TryGetValue(target, out var axaml) ? axaml : ScreenDefaults.Document(target).ToAxaml();
 
-    public void SaveScreenLayout(ScreenTarget target, ScreenLayout layout) => _layouts[target] = layout.Clone();
+    public IReadOnlyList<ScreenIssue> SaveScreenAxaml(ScreenTarget target, string axaml)
+    {
+        _screens[target] = axaml;
+        return Array.Empty<ScreenIssue>();
+    }
 
-    public void ResetScreenLayout(ScreenTarget target) => _layouts.Remove(target);
+    public void ResetScreenDocument(ScreenTarget target) => _screens.Remove(target);
 
     public void Connect()
     {

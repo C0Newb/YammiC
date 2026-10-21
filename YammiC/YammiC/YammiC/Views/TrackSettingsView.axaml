@@ -1,0 +1,61 @@
+<ContentPage xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:YammiC.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
+             Header="Track settings"
+             x:DataType="vm:TrackSettingsViewModel"
+             x:Class="YammiC.Views.TrackSettingsView">
+    <Design.DataContext>
+        <vm:TrackSettingsViewModel />
+    </Design.DataContext>
+
+    <ScrollViewer>
+        <StackPanel Margin="16" Spacing="12" IsEnabled="{Binding IsUnlocked}">
+            <ToggleSwitch Content="Start sessions when the bike's timer is ready" IsChecked="{Binding Enabled}" />
+            <TextBlock Opacity="0.7" TextWrapping="Wrap"
+                       Text="Asks the bike for one extra value so the app can see the timer-ready flag. Needs location access all the time to start by itself." />
+
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <TextBlock Classes="subtitle" Text="GPS frequency" />
+                    <ComboBox HorizontalAlignment="Stretch"
+                              ItemsSource="{Binding Rates}"
+                              SelectedItem="{Binding SelectedRate}" />
+                    <TextBlock Opacity="0.7" TextWrapping="Wrap" Text="{Binding RateStatus}" />
+                    <Button Content="Test my phone's GPS rates" IsEnabled="{Binding !IsTesting}" Command="{Binding TestRatesCommand}" />
+                    <TextBlock Opacity="0.7" TextWrapping="Wrap"
+                               Text="Higher rates time laps more accurately but use more battery and storage." />
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="8">
+                    <ToggleSwitch Content="Pick the nearest track automatically" IsChecked="{Binding AutoSelect}" />
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" IsVisible="{Binding AutoSelect}">
+                        <TextBlock VerticalAlignment="Center" Text="Within (m)" />
+                        <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+                                  ItemsSource="{x:Static vm:TrackSettingsViewModel.AutoSelectDistances}"
+                                  SelectedItem="{Binding AutoSelectMetres}" />
+                    </Grid>
+                    <ToggleSwitch Content="Vibrate when a session starts" IsChecked="{Binding Vibrate}" />
+                </StackPanel>
+            </Border>
+
+            <Border Classes="card">
+                <StackPanel Spacing="4">
+                    <TextBlock Classes="subtitle" Text="Bike data saved with each GPS point" />
+                    <TextBlock Opacity="0.7" TextWrapping="Wrap" Text="Each ticked signal is requested from the bike during a session and recorded." />
+                    <ItemsControl ItemsSource="{Binding Signals}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:CanSignalOption">
+                                <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding Title}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</ContentPage>

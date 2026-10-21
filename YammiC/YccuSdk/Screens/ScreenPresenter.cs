@@ -10,16 +10,18 @@ namespace CNCO.YccuSdk.Screens;
 /// </summary>
 public sealed class ScreenPresenter
 {
-    private readonly Func<ScreenLayout> _layout;
-    private readonly Func<ScreenContext> _context;
+    private readonly ScreenTarget _target;
+    private readonly IScreenRenderer? _renderer;
+    private readonly Func<ScreenPage> _page;
+    private readonly Func<ScreenSnapshot> _snapshot;
     private readonly Func<(int Width, int Height)> _size;
     private readonly Func<bool> _canSend;
     private readonly Func<byte[], Task<bool>> _send;
-    private readonly TimeSpan _tick;
+    private readonly Func<TimeSpan> _tick;
     private readonly TimeSpan _minInterval;
-    private readonly int _quality;
+    private readonly Func<int> _quality;
     private readonly Func<bool>? _wantsFastTick;
-    private readonly TimeSpan _fastTick;
+    private readonly Func<TimeSpan> _fastTick;
     private readonly Logger _log;
     private readonly SemaphoreSlim _busy = new(1, 1);
     private readonly object _gate = new();
@@ -29,8 +31,10 @@ public sealed class ScreenPresenter
     private DateTime _lastAttempt = DateTime.MinValue;
 
     /// <param name="name">For the log.</param>
-    /// <param name="layout">The layout to show (read each tick, so a replaced layout is picked up).</param>
-    /// <param name="context">The data to show (time, music, theme).</param>
+    /// <param name="target">Which display this is (sets the design size the pages are drawn at).</param>
+    /// <param name="renderer">Draws the page; null where there isn't one (nothing is sent).</param>
+    /// <param name="page">The page to show (read each tick, so a page change or an edited page is picked up).</param>
+    /// <param name="snapshot">The data to show (time, music, theme, page position).</param>
     /// <param name="size">Pixel size to render at.</param>
     /// <param name="canSend">False while the display can't take a picture (not connected, disabled): the tick does nothing.</param>
     /// <param name="send">Delivers the JPEG; returns false if it didn't go through.</param>
@@ -39,22 +43,26 @@ public sealed class ScreenPresenter
     /// <param name="wantsFastTick">When it returns true (e.g. the layout shows live bike data) the loop checks every <c>fastTick</c> instead of <c>tick</c>.</param>
     public ScreenPresenter(
         string name,
-        Func<ScreenLayout> layout,
-        Func<ScreenContext> context,
+        ScreenTarget target,
+        IScreenRenderer? renderer,
+        Func<ScreenPage> page,
+        Func<ScreenSnapshot> snapshot,
         Func<(int Width, int Height)> size,
         Func<bool> canSend,
         Func<byte[], Task<bool>> send,
-        TimeSpan tick,
+        Func<TimeSpan> tick,
         TimeSpan minInterval,
-        int quality,
+        Func<int> quality,
         Logger logger,
         Func<bool>? wantsFastTick = null,
-        TimeSpan? fastTick = null)
+        Func<TimeSpan>? fastTick = null)
     {
         _wantsFastTick = wantsFastTick;
         _fastTick = fastTick ?? tick;
-        _layout = layout;
-        _context = context;
+        _target = target;
+        _renderer = renderer;
+        _page = page;
+        _snapshot = snapshot;
         _size = size;
         _canSend = canSend;
         _send = send;
@@ -91,7 +99,7 @@ public sealed class ScreenPresenter
             {
                 while (true)
                 {
-                    await Task.Delay(_wantsFastTick?.Invoke() == true && _fastTick < _tick ? _fastTick : _tick, token).ConfigureAwait(false);
+                    await Task.Delay(NextDelay(), token).ConfigureAwait(false);
                     await RefreshAsync().ConfigureAwait(false);
                 }
             }
@@ -100,6 +108,13 @@ public sealed class ScreenPresenter
                 // Stopped.
             }
         });
+    }
+
+    private TimeSpan NextDelay()
+    {
+        var tick = _tick();
+        var fast = _fastTick();
+        return _wantsFastTick?.Invoke() == true && fast < tick ? fast : tick;
     }
 
     public void Stop()
@@ -126,13 +141,18 @@ public sealed class ScreenPresenter
     private async Task RefreshAsync()
     {
         if (!IsRunning || !_canSend()) return;
+        if (_renderer == null)
+        {
+            LogOnce("there is no screen renderer on this platform");
+            return;
+        }
         if (!await _busy.WaitAsync(0).ConfigureAwait(false)) return; // a send is still in flight
         try
         {
-            var layout = _layout();
-            var context = _context();
+            var page = _page();
+            var snapshot = _snapshot();
             var (width, height) = _size();
-            var signature = $"{width}x{height}|{ScreenRenderer.Signature(layout, context)}";
+            var signature = $"{width}x{height}|{page.Id}|{page.Xaml.GetHashCode()}|{snapshot.Signature(page.UsesSeconds)}";
 
             lock (_gate)
             {
@@ -141,12 +161,16 @@ public sealed class ScreenPresenter
                 _lastAttempt = DateTime.UtcNow;
             }
 
-            byte[] jpeg;
-            using (var bitmap = ScreenRenderer.Render(layout, context, width, height))
+            using var bitmap = await _renderer.RenderAsync(_target, page, snapshot, width, height).ConfigureAwait(false);
+            if (bitmap == null)
             {
-                jpeg = YmcImaging.EncodeJpeg(bitmap, _quality);
+                // Keep showing the last good picture; don't retry until the page or the data changes.
+                LogOnce($"page \"{page.Id}\" can't be drawn: {_renderer.LastError}");
+                lock (_gate) _lastSignature = signature;
+                return;
             }
 
+            var jpeg = YmcImaging.EncodeJpeg(bitmap, _quality());
             var sent = await _send(jpeg).ConfigureAwait(false);
             if (sent)
             {
@@ -165,5 +189,14 @@ public sealed class ScreenPresenter
         {
             _busy.Release();
         }
+    }
+
+    private string? _lastLogged;
+
+    private void LogOnce(string message)
+    {
+        if (message == _lastLogged) return;
+        _lastLogged = message;
+        _log.Debug(message);
     }
 }

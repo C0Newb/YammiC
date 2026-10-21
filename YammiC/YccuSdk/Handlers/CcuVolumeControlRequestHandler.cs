@@ -21,7 +21,8 @@ public class CcuVolumeControlRequestHandler : CcuRequestHandler<CcuVolumeControl
     public override async Task InvokeAsync(
         CcuVolumeControlRequest packet,
         IYmcPacketHandler packetHandler,
-        YmcConnectionContext connectionContext)
+        YmcConnectionContext connectionContext
+    )
     {
         _log.Debug($"action={packet.ControlAction}");
         BikeVolumeType? affectedType;
@@ -52,10 +53,13 @@ public class CcuVolumeControlRequestHandler : CcuRequestHandler<CcuVolumeControl
                 affectedType = null;
                 break;
         }
-        if (affectedType is not { } type) return;
+        if (affectedType is not { } type)
+        {
+            return;
+        }
 
         var pct = _volume.GetVolumePercent(type);
         _log.Debug($"reporting {type} volume={pct}%");
-        await new AppPhoneVolumeLevelRequest(packetHandler, type, pct).SendAsync(connectionContext).ConfigureAwait(false);
+        await new AppPhoneVolumeLevelRequest(packetHandler, type, pct).SendAsync(connectionContext);
     }
 }

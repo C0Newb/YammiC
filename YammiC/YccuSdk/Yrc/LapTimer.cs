@@ -35,7 +35,8 @@ public sealed class LapTimer
     {
         get
         {
-            lock (_gate) return _running;
+            lock (_gate)
+                return _running;
         }
     }
 
@@ -45,7 +46,8 @@ public sealed class LapTimer
     {
         get
         {
-            lock (_gate) return _clock.Elapsed - _lapStart;
+            lock (_gate)
+                return _clock.Elapsed - _lapStart;
         }
     }
 
@@ -53,7 +55,8 @@ public sealed class LapTimer
     {
         get
         {
-            lock (_gate) return _laps.ToList();
+            lock (_gate)
+                return _laps.ToList();
         }
     }
 
@@ -61,42 +64,56 @@ public sealed class LapTimer
     {
         get
         {
-            lock (_gate) return _lastAck;
+            lock (_gate)
+                return _lastAck;
         }
     }
 
     public void Start(YmcNotificationBus notifications, CancellationToken cancellation)
     {
         var subscription = notifications.Subscribe();
-        _ = Task.Run(async () =>
-        {
-            using (subscription)
+        _ = Task.Run(
+            async () =>
             {
-                try
+                using (subscription)
                 {
-                    await foreach (var n in subscription.Reader.ReadAllAsync(cancellation).ConfigureAwait(false))
+                    try
                     {
-                        if (n.Uuid == YmcBikeProtocol.MainRxUuid) HandleMessage(n.Value);
+                        await foreach (
+                            var n in subscription
+                                .Reader.ReadAllAsync(cancellation)
+                                .ConfigureAwait(false)
+                        )
+                        {
+                            if (n.Uuid == YmcBikeProtocol.MainRxUuid)
+                                HandleMessage(n.Value);
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // Stopped.
                     }
                 }
-                catch (OperationCanceledException)
-                {
-                    // Stopped.
-                }
-            }
-        }, cancellation);
+            },
+            cancellation
+        );
     }
 
     private void HandleMessage(byte[] message)
     {
         // [cmd 2B: 0x0252][requestId][1 = OK, 0 = NG]
-        if (message.Length < 4 || ((message[0] << 8) | message[1]) != (int)YmcCommandCode.SendLapSectorTimeResponse) return;
+        if (
+            message.Length < 4
+            || ((message[0] << 8) | message[1]) != (int)YmcCommandCode.SendLapSectorTimeResponse
+        )
+            return;
         var text = message[3] == 1 ? "OK" : "NG";
         _log.Info($"Bike answered request {message[2]}: {text}");
         lock (_gate)
         {
             _lastAck = text;
-            if (_laps.Count > 0) _laps[^1] = _laps[^1] with { Status = text };
+            if (_laps.Count > 0)
+                _laps[^1] = _laps[^1] with { Status = text };
         }
         Updated?.Invoke();
     }
@@ -126,9 +143,10 @@ public sealed class LapTimer
             _clock.Stop();
             _running = false;
         }
-        if (!wasRunning) return;
+        if (!wasRunning)
+            return;
         _log.Info("Stopped");
-        await FinishLapAsync().ConfigureAwait(false);
+        await FinishLapAsync();
     }
 
     /// <summary>Ends the current lap and starts the next one.</summary>
@@ -143,7 +161,11 @@ public sealed class LapTimer
             var now = _clock.Elapsed;
             var time = now - _lapStart;
             _lapStart = now;
-            var best = _laps.Where(l => l.Time > TimeSpan.Zero).Select(l => l.Time).DefaultIfEmpty(TimeSpan.Zero).Min();
+            var best = _laps
+                .Where(l => l.Time > TimeSpan.Zero)
+                .Select(l => l.Time)
+                .DefaultIfEmpty(TimeSpan.Zero)
+                .Min();
             reference = best > TimeSpan.Zero ? ToCentiseconds(best) : AppSendLapSectorTime.NoTime;
             lap = new LapRecord(_laps.Count + 1, time, "Sending");
             _laps.Add(lap);
@@ -151,7 +173,13 @@ public sealed class LapTimer
         Updated?.Invoke();
 
         var lapCs = Math.Min(ToCentiseconds(lap.Time), 359999);
-        var gaps = new[] { AppSendLapSectorTime.GapNotMeasured, AppSendLapSectorTime.GapNotMeasured, AppSendLapSectorTime.GapNotMeasured, AppSendLapSectorTime.GapNotMeasured };
+        var gaps = new[]
+        {
+            AppSendLapSectorTime.GapNotMeasured,
+            AppSendLapSectorTime.GapNotMeasured,
+            AppSendLapSectorTime.GapNotMeasured,
+            AppSendLapSectorTime.GapNotMeasured,
+        };
         var problem = AppSendLapSectorTime.Validate(lap.Number, lapCs, reference, 0, gaps);
         string status;
         if (problem != null)
@@ -164,9 +192,17 @@ public sealed class LapTimer
         }
         else
         {
-            _log.Info($"Lap {lap.Number}: {lapCs} cs (reference {(reference == AppSendLapSectorTime.NoTime ? "none" : reference.ToString())})");
-            await new AppSendLapSectorTime(mb.PacketHandler, lap.Number, lapCs, reference, 0, gaps)
-                .SendAsync(mb.ConnectionContext).ConfigureAwait(false);
+            _log.Info(
+                $"Lap {lap.Number}: {lapCs} cs (reference {(reference == AppSendLapSectorTime.NoTime ? "none" : reference.ToString())})"
+            );
+            await new AppSendLapSectorTime(
+                mb.PacketHandler,
+                lap.Number,
+                lapCs,
+                reference,
+                0,
+                gaps
+            ).SendAsync(mb.ConnectionContext);
             status = "Sent";
         }
 
@@ -174,7 +210,8 @@ public sealed class LapTimer
         {
             var index = _laps.FindIndex(l => l.Number == lap.Number);
             // The bike's answer may already have replaced the status; keep it.
-            if (index >= 0 && _laps[index].Status == "Sending") _laps[index] = _laps[index] with { Status = status };
+            if (index >= 0 && _laps[index].Status == "Sending")
+                _laps[index] = _laps[index] with { Status = status };
         }
         Updated?.Invoke();
     }

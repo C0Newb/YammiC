@@ -1,0 +1,47 @@
+<ContentPage xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:YammiC.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
+             Header="Tracks"
+             x:DataType="vm:TracksViewModel"
+             x:Class="YammiC.Views.TracksView">
+    <Design.DataContext>
+        <vm:TracksViewModel />
+    </Design.DataContext>
+
+    <ScrollViewer>
+        <StackPanel Margin="16" Spacing="16">
+            <WrapPanel IsEnabled="{Binding IsUnlocked}">
+                <Button Margin="0,0,8,8" Classes="accent" Content="New track" Click="New_Click" />
+                <Button Margin="0,0,8,8" Content="Import..." Click="Import_Click" />
+            </WrapPanel>
+            <TextBlock TextWrapping="Wrap" Opacity="0.7" Text="{Binding Status}" />
+
+            <ItemsControl ItemsSource="{Binding Tracks}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:TrackRow">
+                        <Border Classes="card" Margin="0,0,0,8">
+                            <StackPanel Spacing="8">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <StackPanel>
+                                        <TextBlock Classes="subtitle" Text="{Binding Title}" />
+                                        <TextBlock Opacity="0.7" Text="{Binding Detail}" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1" VerticalAlignment="Center" IsVisible="{Binding IsSelected}" Text="Selected" />
+                                </Grid>
+                                <WrapPanel>
+                                    <Button Margin="0,0,8,0" Content="Use" Command="{Binding SelectCommand}" />
+                                    <Button Margin="0,0,8,0" Content="Edit" Command="{Binding EditCommand}" />
+                                    <Button Margin="0,0,8,0" Content="Export..." Command="{Binding ExportCommand}" />
+                                    <Button Content="Delete" Command="{Binding DeleteCommand}" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </ScrollViewer>
+</ContentPage>
